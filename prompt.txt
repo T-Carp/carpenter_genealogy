@@ -1,0 +1,50 @@
+Prompt 1
+
+I am working on a coding project where I want to convert a pdf into a rag database and use an LLM to analyze the content and be able to answer questions about it.  Please comprehend the following and have an ideation session with me.  Do not write any code
+
+Construct an LLM agent for analyzing and answering questions about my families genealogy.  
+
+Important steps in this project
+1: implement a LangGraph framework for orchestrating workflows:
+
+Potential workflow nodes include:
+    Query Router: Determines if query is factual ("When was X born?") vs. exploratory ("Tell me about...")
+    RAG Retrieval: Pulls relevant chunks from vector DB
+    Fact Extractor: For structured queries, extracts specific facts
+    Synthesizer: For narrative queries, synthesizes information across multiple sources
+    Citation Generator: Always important for genealogy - where did this info come from?
+    Confidence Checker: Genealogy needs uncertainty handling ("likely," "possibly," "confirmed")
+
+2: convert a large pdf into a vector database for use with an LLM: Consider a hybrid approach:
+
+    Structured genealogy data (names, dates, relationships) might be better in a traditional database or knowledge graph
+    Narrative content (stories, descriptions, historical context) → Vector DB
+    This gives you both precise lookups ("When was John Smith born?") and semantic queries ("Tell me about family members who immigrated")
+
+
+3: construct a user interface for humans to chat and ask questions about the rag data.  Use Gradio and provide documentation on how to use the claude api to make an llm available to users here.
+4: Provide possible next steps for integrating more data sources, so the LLM can assess my local RAG database and also make comparisons across other data stores that my have genealogy information on my family
+
+Current State:
+- I do not yet have a pdf version of the book. 
+
+Factual queries:
+  - "When was [person name] born?"
+  - "Where did [person name] die?"
+  - "What was [person name]'s occupation?"
+
+  Exploratory queries:
+  - "Tell me about the Keenum family history"
+  - "What do we know about family members who immigrated?"
+  - "Describe the family's life in [location]"
+
+  Relationship queries:
+  - "How is [person A] related to [person B]?"
+  - "Who were [person name]'s children?"
+
+  The system will:
+  - ✅ Search the vector database for relevant narrative content
+  - ✅ Extract specific facts when needed
+  - ✅ Synthesize information from multiple sources
+  - ✅ Provide citations (page numbers and sources)
+  - ✅ Include confidence levels (confirmed/likely/possible/uncertain)
