@@ -73,6 +73,7 @@ class QueryType(str, Enum):
     EXPLORATORY = "exploratory"  # Narrative/open-ended
     RELATIONSHIP = "relationship"  # About connections between people
     TIMELINE = "timeline"  # Chronological information
+    LINEAGE = "lineage"  # Multi-generational lineage tracing
 
 
 class QueryIntent(BaseModel):

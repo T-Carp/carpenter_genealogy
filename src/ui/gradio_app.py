@@ -88,15 +88,16 @@ def create_gradio_interface() -> gr.Blocks:
         theme=gr.themes.Soft(),
     ) as interface:
         gr.Markdown("""
-        # Carpenter Family Genealogy Assistant
+        # Family Genealogy Assistant
 
         Ask questions about your family history and get AI-powered answers with citations.
 
-        **Example queries:**
-        - "When was John Carpenter born?"
-        - "Tell me about the Carpenter family's immigration to America"
-        - "What do we know about family members who lived in the 1800s?"
-        - "How is Mary related to John?"
+        **Example queries for lineage tracing:**
+        - "Trace the lineage from Alexander Keenum down to his descendants. Show me how the family line progressed through each generation."
+        - "Trace Nan Dee Keenum's ancestry backwards to Alexander Keenum. Show me all the generations connecting them."
+        - "Who are the earliest Keenum ancestors mentioned in the book?"
+        - "Tell me about the descendants of Alexander Keenum. Who are their children, grandchildren, and great-grandchildren?"
+        - "How are Alexander Keenum and Nan Dee Keenum related? Show me the complete family connection."
         """)
 
         with gr.Tab("Chat"):

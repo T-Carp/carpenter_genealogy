@@ -105,6 +105,7 @@ class GenealogyWorkflow:
                 "exploratory": "synthesize",
                 "relationship": "synthesize",
                 "timeline": "synthesize",
+                "lineage": "synthesize",  # Treat lineage as regular synthesis for now
             },
         )
 

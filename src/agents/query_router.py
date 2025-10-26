@@ -25,7 +25,7 @@ class QueryRouter:
 
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a genealogy query analyzer. Analyze the user's query and determine:
-1. Query type (factual, exploratory, relationship, or timeline)
+1. Query type (factual, exploratory, relationship, timeline, or lineage)
 2. Entities mentioned (names, places, dates)
 3. Temporal context if any
 
@@ -34,9 +34,10 @@ Query types:
 - EXPLORATORY: Asks for general information or narrative (e.g., "Tell me about...", "What do we know about...")
 - RELATIONSHIP: Asks about family connections (e.g., "How is X related to Y?", "Who were X's children?")
 - TIMELINE: Asks about chronology (e.g., "What happened in 1850?", "Timeline of X's life")
+- LINEAGE: Asks to trace multi-generational lineage (e.g., "Trace from X to Y", "Show lineage from X to Y", "X's ancestry to Y")
 
 Return a JSON object with:
-- query_type: one of [factual, exploratory, relationship, timeline]
+- query_type: one of [factual, exploratory, relationship, timeline, lineage]
 - entities: list of entity names mentioned
 - temporal_context: any time period or dates mentioned
 - confidence: confidence score 0-1"""),
@@ -58,8 +59,10 @@ Return a JSON object with:
         # Parse LLM response (simplified - in production, use structured output)
         content = response.content.lower()
 
-        # Determine query type
-        if "factual" in content:
+        # Determine query type (check lineage first as it's most specific)
+        if "lineage" in content:
+            query_type = QueryType.LINEAGE
+        elif "factual" in content:
             query_type = QueryType.FACTUAL
         elif "relationship" in content:
             query_type = QueryType.RELATIONSHIP
