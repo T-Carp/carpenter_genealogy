@@ -19,25 +19,36 @@ class Person(BaseModel):
     """Model for a person in the genealogy."""
 
     id: Optional[int] = None
-    first_name: str
+    given_name: str
     middle_name: Optional[str] = None
-    last_name: str
+    surname: str
     maiden_name: Optional[str] = None
-    birth_date: Optional[date] = None
-    birth_place: Optional[str] = None
-    death_date: Optional[date] = None
-    death_place: Optional[str] = None
-    gender: Optional[str] = None
+    birth_year: Optional[int] = None
+    death_year: Optional[int] = None
+    generation: Optional[int] = None  # Generation number from lineage chart
     confidence: ConfidenceLevel = ConfidenceLevel.UNCERTAIN
 
 
 class Relationship(BaseModel):
-    """Model for relationships between people."""
+    """Model for parent-child relationships."""
+
+    id: Optional[int] = None
+    parent_id: int
+    child_id: int
+    relationship_type: str  # e.g., "biological", "adoptive", "step"
+    confidence: ConfidenceLevel = ConfidenceLevel.UNCERTAIN
+
+
+class Partnership(BaseModel):
+    """Model for marriages and partnerships."""
 
     id: Optional[int] = None
     person1_id: int
     person2_id: int
-    relationship_type: str  # e.g., "parent", "spouse", "sibling"
+    partnership_type: str  # e.g., "marriage", "partnership"
+    start_year: Optional[int] = None
+    end_year: Optional[int] = None
+    sequence_number: Optional[int] = None  # For tracking 1st, 2nd marriages, etc.
     confidence: ConfidenceLevel = ConfidenceLevel.UNCERTAIN
 
 

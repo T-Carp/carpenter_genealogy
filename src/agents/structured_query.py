@@ -46,7 +46,7 @@ class StructuredQuery:
             return [
                 {
                     "id": p.id,
-                    "full_name": f"{p.first_name} {p.middle_name or ''} {p.last_name}".strip(),
+                    "full_name": f"{p.first_name or ''} {p.middle_name or ''} {p.last_name or ''}".strip(),
                     "birth_date": str(p.birth_date) if p.birth_date else None,
                     "birth_place": p.birth_place,
                     "death_date": str(p.death_date) if p.death_date else None,

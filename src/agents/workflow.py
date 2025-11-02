@@ -10,6 +10,7 @@ from .synthesizer import Synthesizer
 from .citation_generator import CitationGenerator
 from .confidence_checker import ConfidenceChecker
 from .structured_query import StructuredQuery
+from .lineage_graph import LineageGraph
 from ..database.vector_store import VectorStore
 from ..database.structured_store import StructuredStore
 from ..utils.config import Settings
@@ -59,6 +60,7 @@ class GenealogyWorkflow:
         # Initialize nodes
         self.query_router = QueryRouter(settings)
         self.structured_query = StructuredQuery(settings, structured_store)
+        self.lineage_graph = LineageGraph(settings, structured_store, vector_store)
         self.rag_retrieval = RAGRetrieval(settings, vector_store)
         self.fact_extractor = FactExtractor(settings)
         self.synthesizer = Synthesizer(settings)
@@ -80,6 +82,7 @@ class GenealogyWorkflow:
         # Add nodes
         workflow.add_node("route_query", self.query_router)
         workflow.add_node("query_structured_db", self.structured_query)
+        workflow.add_node("traverse_lineage", self.lineage_graph)
         workflow.add_node("retrieve_docs", self.rag_retrieval)
         workflow.add_node("extract_facts", self.fact_extractor)
         workflow.add_node("synthesize", self.synthesizer)
@@ -93,8 +96,25 @@ class GenealogyWorkflow:
         # Route query -> Try structured DB first
         workflow.add_edge("route_query", "query_structured_db")
 
-        # After structured query -> Always retrieve RAG docs for additional context
-        workflow.add_edge("query_structured_db", "retrieve_docs")
+        # After structured query -> Check if lineage query
+        workflow.add_conditional_edges(
+            "query_structured_db",
+            self._route_after_structured_query,
+            {
+                "lineage": "traverse_lineage",
+                "other": "retrieve_docs",
+            },
+        )
+
+        # After lineage traversal -> Check if we found a path
+        workflow.add_conditional_edges(
+            "traverse_lineage",
+            self._route_after_lineage,
+            {
+                "found": "finalize",  # If path found, skip RAG and go straight to finalize
+                "not_found": "retrieve_docs",  # If no path, continue with RAG
+            },
+        )
 
         # After retrieval, branch based on query type
         workflow.add_conditional_edges(
@@ -126,6 +146,38 @@ class GenealogyWorkflow:
 
         return workflow.compile()
 
+    def _route_after_structured_query(self, state: GenealogyState) -> str:
+        """Route after structured query based on query type.
+
+        Args:
+            state: Current state
+
+        Returns:
+            Next node name
+        """
+        query_type = state.get("query_type", "")
+        # Send both lineage and relationship queries to graph traversal
+        if query_type in ("lineage", "relationship"):
+            return "lineage"
+        return "other"
+
+    def _route_after_lineage(self, state: GenealogyState) -> str:
+        """Route after lineage traversal based on whether path was found.
+
+        Args:
+            state: Current state
+
+        Returns:
+            Next node name
+        """
+        # Check if lineage path was found
+        structured_response = state.get("structured_response", "")
+        has_data = state.get("has_structured_data", False)
+
+        if has_data and "Lineage Connection Found" in structured_response:
+            return "found"
+        return "not_found"
+
     def _route_after_retrieval(self, state: GenealogyState) -> str:
         """Route to appropriate node after retrieval.
 
@@ -136,6 +188,9 @@ class GenealogyWorkflow:
             Next node name
         """
         query_type = state.get("query_type", "exploratory")
+        # For lineage/relationship queries that reached here, treat as exploratory
+        if query_type in ("lineage", "relationship"):
+            query_type = "exploratory"
         return query_type
 
     def _finalize_response(self, state: Dict[str, Any]) -> Dict[str, Any]:
