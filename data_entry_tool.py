@@ -135,11 +135,7 @@ class GenealogyDataEntry:
             death_yr = int(death_year) if death_year else None
             gen = int(generation) if generation else None
 
-            # Check if person already exists
-            existing = self.store.find_person_by_name(given_name, surname)
-            if existing:
-                return f"Person '{given_name} {surname}' already exists with ID {existing.id}.", self.get_all_people_df()
-
+            # Note: We allow duplicate names since it's common to reuse names across generations
             person_id = self.store.add_person(
                 given_name,
                 surname,
