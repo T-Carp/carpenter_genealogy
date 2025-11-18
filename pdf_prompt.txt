@@ -11,7 +11,7 @@ CREATE TABLE people (
     surname VARCHAR(100),
     maiden_name VARCHAR(100),  -- For tracking name changes
     birth_year INTEGER,
-    death_year INTEGER
+    death_year INTEGER1
 );
 ```
 
