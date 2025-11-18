@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI-powered genealogy analysis system for the Carpenter family using LangGraph workflows, RAG (Retrieval Augmented Generation), and Claude 3.5 Sonnet. The system converts genealogy PDF documents into a searchable database and provides an interactive chat interface for querying family history.
+Genealogy data management system for the Carpenter family. The system provides:
+1. **Data Entry & Verification Tool** - Gradio-based interface for managing genealogy data
+2. **RESTful API** - FastAPI endpoints for programmatic access to family data
+3. **Family Tree Visualization** - D3.js-based interactive family tree visualization
+4. **Data Parsing Scripts** - Tools for parsing and populating lineage data from various sources
 
 ## Development Commands
 
@@ -17,48 +21,42 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
+# Configure environment (optional, for custom settings)
 cp .env.example .env
-# Edit .env and add ANTHROPIC_API_KEY
+# Edit .env if needed
 ```
 
-### Running the Application
+### Running the Applications
+
+#### Data Entry Tool (Gradio)
 ```bash
-# Start the Gradio web interface (default port 7860)
-python app.py
+# Start the Gradio data entry interface
+python data_entry_tool.py
 
-# Custom port
-python app.py --port 8080
-
-# Create public share link
-python app.py --share
+# Access at http://localhost:7860
 ```
 
-### PDF Ingestion
+#### API Server (FastAPI)
 ```bash
-# Ingest a single PDF
-python ingest_pdf.py data/pdfs/genealogy_book.pdf
+# Start the FastAPI server
+python api.py
 
-# Ingest all PDFs in directory
-python ingest_pdf.py data/pdfs/
+# Or with uvicorn directly
+uvicorn api:app --reload --port 8000
 
-# With custom source name
-python ingest_pdf.py data/pdfs/book.pdf --source-name "Family History Vol 1"
+# API docs available at:
+# - Swagger UI: http://localhost:8000/docs
+# - ReDoc: http://localhost:8000/redoc
 ```
 
-### Testing
+### Data Population Scripts
 ```bash
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_workflow.py
-
-# Run with coverage
-pytest --cov=src tests/
-
-# Run with verbose output
-pytest -v
+# Run lineage population scripts from parsers/ directory
+cd parsers
+python populate_alexander_lineage.py
+python populate_john_lineage.py
+python populate_richard_lineage.py
+# ... etc for other lineages
 ```
 
 ### Code Quality
@@ -77,283 +75,295 @@ ruff check --fix .
 
 ### High-Level Overview
 
-The system uses a **hybrid database approach** with **LangGraph workflow orchestration**:
+The system uses a **simple, focused architecture**:
 
-1. **Ingestion Pipeline**: PDFs → Text extraction → Chunking → Vector DB + Structured DB
-2. **Query Processing**: User query → LangGraph workflow → Response with citations
-3. **User Interface**: Gradio chat interface with real-time responses
-
-### LangGraph Workflow
-
-The core of the system is a LangGraph state machine that processes queries through specialized nodes:
-
-**Workflow Graph** (`src/agents/workflow.py`):
-```
-Entry: Query
-  ↓
-QueryRouter (determines query type: factual/exploratory/relationship/timeline)
-  ↓
-RAGRetrieval (searches vector DB for relevant content)
-  ↓
-[Conditional branch based on query type]
-  ├─ Factual → FactExtractor (extracts structured data)
-  └─ Other types → skip to Synthesizer
-  ↓
-Synthesizer (creates narrative response from sources)
-  ↓
-CitationGenerator (tracks information sources)
-  ↓
-ConfidenceChecker (assesses reliability: confirmed/likely/possible/uncertain)
-  ↓
-Finalize (formats final response with citations and confidence)
-  ↓
-End
-```
-
-**Key Design Principle**: Each node is a self-contained function that takes `state: Dict` and returns updated `state: Dict`, enabling flexible composition and testing.
-
-### Agent Nodes
-
-All nodes in `src/agents/`:
-
-- **QueryRouter** (`query_router.py`): Uses Claude to analyze query intent and classify type
-- **RAGRetrieval** (`rag_retrieval.py`): Semantic search in ChromaDB, returns top-k chunks
-- **FactExtractor** (`fact_extractor.py`): Extracts structured facts (dates, places, events)
-- **Synthesizer** (`synthesizer.py`): Creates coherent narrative from multiple sources
-- **CitationGenerator** (`citation_generator.py`): Generates source references
-- **ConfidenceChecker** (`confidence_checker.py`): Assesses information reliability
+1. **Data Layer**: SQLite database with SQLAlchemy ORM
+2. **API Layer**: FastAPI RESTful endpoints
+3. **UI Layer**: Gradio data entry tool
+4. **Visualization Layer**: D3.js family tree rendering
 
 ### Database Architecture
 
-**Hybrid Approach** - Different data types stored optimally:
+**SQLite with SQLAlchemy ORM** (`src/database/structured_store.py`):
 
-**Vector Database** (`src/database/vector_store.py`):
-- **Technology**: ChromaDB with persistent storage
-- **Purpose**: Narrative content for semantic search
-- **Embeddings**: sentence-transformers/all-MiniLM-L6-v2
-- **Chunking**: RecursiveCharacterTextSplitter (1000 chars, 200 overlap)
-- **Metadata**: source, page_number, section, source_type
-- **Location**: `data/vector_store/`
+**Schema**:
+- `persons`:
+  - id, given_name, middle_name, surname, maiden_name
+  - birth_year, birth_place, death_year, death_place
+  - generation, gender, confidence_level
 
-**Structured Database** (`src/database/structured_store.py`):
-- **Technology**: SQLite with SQLAlchemy ORM
-- **Purpose**: Facts, relationships, citations with precise lookups
-- **Schema**:
-  - `persons`: id, first_name, middle_name, last_name, maiden_name, birth_date, birth_place, death_date, death_place, gender, confidence
-  - `relationships`: id, person1_id, person2_id, relationship_type, confidence
-  - `facts`: id, person_id, fact_type, date, place, description, confidence, citation_id
-  - `citations`: id, source_type, source_name, page_number, section, url, notes
-- **Location**: `data/structured_db/genealogy.db`
+- `relationships`:
+  - id, person1_id, person2_id, relationship_type, confidence_level
 
-**Why Hybrid?**
-- Factual queries ("When was John born?") → Fast SQL lookup
-- Semantic queries ("Tell me about immigration") → Vector similarity search
-- Best of both worlds for genealogical research
+- `partnerships`:
+  - id, person1_id, person2_id, marriage_year, marriage_place, end_year, confidence_level
+
+- `citations`:
+  - id, source_type, source_name, page_number, section, url, notes
+
+**Location**: `data/structured_db/genealogy.db`
 
 ### Data Models
 
 **Pydantic Models** (`src/database/models.py`):
 
-Key models that define the system's data structures:
-- `Person`, `Relationship`, `Citation`, `Fact`: Genealogical entities
+Core models that define the system's data structures:
+- `Person`: Individual with biographical information
+- `Relationship`: Parent-child, sibling, and other familial relationships
+- `Partnership`: Marriage or long-term partnerships
+- `Citation`: Source documentation for data provenance
 - `ConfidenceLevel` (Enum): confirmed | likely | possible | uncertain
-- `QueryType` (Enum): factual | exploratory | relationship | timeline
-- `QueryIntent`: Parsed user query with entities and context
-- `RetrievalResult`: Document chunk with relevance score
-- `GenealogyResponse`: Final response with answer, confidence, citations
 
 **Important**: All database operations use these models for type safety and validation.
 
-### PDF Processing Pipeline
+### API Layer
 
-**PDFProcessor** (`src/processors/pdf_processor.py`):
+**FastAPI Routes** (`src/api/routes.py`):
 
-1. **Extraction**: Uses PyMuPDF (fitz) for text extraction with page numbers
-2. **Chunking**: RecursiveCharacterTextSplitter maintains context across chunks
-3. **Vector Indexing**: Embeddings generated and stored in ChromaDB
-4. **Structured Extraction**: Pattern matching for dates, events (basic - can be enhanced with NER)
+RESTful endpoints for:
+- **Persons**: CRUD operations, search, filtering
+- **Relationships**: Create, retrieve, query family connections
+- **Partnerships**: Manage marriage/partnership records
+- **Family Tree Data**: Get hierarchical tree structure for visualization
+- **Statistics**: Database stats and metrics
 
-**Processing Flow**:
-```
-PDF → extract_text_from_pdf() → [(text, page_num), ...]
-    → chunk_text() → [(chunk, metadata), ...]
-    → add_documents() → Vector DB
-    → extract_structured_data() → Structured DB
-```
-
-### Configuration Management
-
-**Settings** (`src/utils/config.py`):
-
-Uses Pydantic Settings for environment-based configuration:
-- Loads from `.env` file
-- Type validation
-- Default values
-- Access via `get_settings()`
-
-**Key Settings**:
-- `anthropic_api_key`: Claude API key
-- `claude_model`: Model name (default: claude-3-5-sonnet-20241022)
-- `max_context_chunks`: Number of chunks to retrieve (default: 10)
-- `chunk_size`, `chunk_overlap`: Text splitting parameters
-- `confidence_threshold`: Minimum confidence for responses
+**Key Features**:
+- Automatic OpenAPI/Swagger documentation
+- Pydantic validation
+- Proper HTTP status codes
+- Error handling with detailed messages
 
 ### UI Layer
 
-**Gradio Interface** (`src/ui/gradio_app.py`):
+**Gradio Data Entry Tool** (`data_entry_tool.py`):
 
-Three-tab interface:
-1. **Chat**: Main conversation interface with history
-2. **Database Info**: Statistics about indexed content
-3. **About**: System documentation and API info
+Multi-tab interface:
+1. **Person Management**: Add, edit, search people
+2. **Relationship Management**: Define family connections
+3. **Partnership Management**: Record marriages/partnerships
+4. **Data Verification**: Review and validate entries
+5. **Family Tree Visualization**: Interactive D3.js tree
 
 **Key Features**:
-- Persistent chat history within session
-- Real-time response generation
-- Citation display in responses
-- Confidence indicators
+- Real-time filtering and search
+- Duplicate detection
+- Data validation
+- Export functionality
+
+### Visualization Layer
+
+**D3.js Family Tree** (`src/visualizations/`):
+
+- **D3 Tidy Tree** (`d3_tidy_tree.py`): Generates hierarchical tree layout
+- **Family Tree Viz** (`family_tree_viz.py`): Handles data transformation
+- **Graph Builder** (`graph_builder.py`): Constructs family graph from database
+
+**JavaScript** (`tidy_tree.js`): Client-side D3.js rendering
+
+**Features**:
+- Interactive exploration
+- Collapsible nodes
+- Generational levels
+- Relationship indicators
+
+### Data Parsing
+
+**Lineage Population Scripts** (`parsers/`):
+
+Scripts for importing data from various sources:
+- `populate_alexander_lineage.py`
+- `populate_john_lineage.py`
+- `populate_richard_lineage.py`
+- `populate_stephen_lineage.py`
+- `populate_mary_lineage.py`
+- `populate_berry_lineage.py`
+- `populate_george_lineage.py`
+- `populate_milly_lineage.py`
+- `populate_susan_lineage.py`
+
+These scripts parse structured data and populate the database with proper relationships.
 
 ## Common Development Tasks
 
-### Adding a New Workflow Node
+### Adding New API Endpoints
 
-1. Create node class in `src/agents/your_node.py`:
+1. Define Pydantic response model in `src/database/models.py`:
 ```python
-class YourNode:
-    def __init__(self, settings: Settings):
-        self.settings = settings
-        self.llm = ChatAnthropic(...)
-
-    def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        # Process state
-        return {**state, "new_field": value}
+class NewResponse(BaseModel):
+    field: str
 ```
 
-2. Register in workflow (`src/agents/workflow.py`):
+2. Add route in `src/api/routes.py`:
 ```python
-workflow.add_node("your_node", self.your_node)
-workflow.add_edge("previous_node", "your_node")
+@router.get("/new-endpoint", response_model=NewResponse)
+async def get_something(store: StructuredStore = Depends(get_store)):
+    # Implementation
+    return NewResponse(field="value")
 ```
+
+3. Test at http://localhost:8000/docs
 
 ### Adding New Database Fields
 
 1. Update Pydantic model in `src/database/models.py`
 2. Update SQLAlchemy model in `src/database/structured_store.py`
-3. Add migration or drop/recreate database for testing
+3. For existing databases, either:
+   - Create migration script
+   - Or drop/recreate for development: `rm data/structured_db/genealogy.db`
 
-### Modifying Chunking Strategy
+### Modifying Gradio Interface
 
-Edit `src/processors/pdf_processor.py`:
-```python
-self.text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=settings.chunk_size,  # Adjust in .env
-    chunk_overlap=settings.chunk_overlap,
-    separators=["\n\n", "\n", ". ", " "],  # Customize here
-)
+Edit `data_entry_tool.py`:
+- Add new tabs in the `create_gradio_interface()` function
+- Add new event handlers for user interactions
+- Update data display methods
+
+### Adding New Visualization Features
+
+1. Update data preparation in `src/visualizations/`
+2. Modify D3.js rendering in `tidy_tree.js`
+3. Update API endpoint if new data structure needed
+
+## File Structure
+
+```
+carpenter_genealogy/
+├── api.py                      # FastAPI application entry point
+├── data_entry_tool.py          # Gradio UI application
+├── tidy_tree.js                # D3.js visualization
+├── requirements.txt            # Python dependencies
+├── .env                        # Environment configuration (not in git)
+├── data/
+│   ├── structured_db/          # SQLite database
+│   └── exports/                # Exported data files
+├── parsers/                    # Data parsing scripts
+│   ├── populate_*.py           # Lineage population scripts
+│   └── parse_*.py              # Data parsing utilities
+└── src/
+    ├── api/
+    │   ├── routes.py           # FastAPI routes
+    │   └── dependencies.py     # Dependency injection
+    ├── database/
+    │   ├── models.py           # Pydantic data models
+    │   └── structured_store.py # SQLAlchemy ORM & database
+    ├── ui/
+    │   └── family_tree_tab.py  # Family tree visualization tab
+    ├── utils/
+    │   └── config.py           # Configuration management
+    └── visualizations/
+        ├── d3_tidy_tree.py     # D3 tree layout generation
+        ├── family_tree_viz.py  # Tree data transformation
+        └── graph_builder.py    # Graph construction
 ```
 
-### Changing Embedding Model
+## Data Model Relationships
 
-Edit `src/database/vector_store.py`:
-```python
-self.embedding_model = SentenceTransformer("your-model-name")
+```
+Person
+  ├─→ Relationships (as person1 or person2)
+  │   └─→ Person (related person)
+  ├─→ Partnerships (as person1 or person2)
+  │   └─→ Person (partner)
+  └─→ Citations (optional)
+
+Relationship
+  ├─→ Person (person1)
+  ├─→ Person (person2)
+  └─→ Citation (optional)
+
+Partnership
+  ├─→ Person (person1)
+  ├─→ Person (person2)
+  └─→ Citation (optional)
 ```
 
-Popular alternatives:
-- `all-mpnet-base-v2`: Higher quality, slower
-- `paraphrase-MiniLM-L6-v2`: Paraphrase detection
-- `multi-qa-MiniLM-L6-cos-v1`: Optimized for Q&A
+## API Endpoints Reference
 
-## Important Patterns
+### Persons
+- `GET /persons/` - List all persons with optional filters
+- `GET /persons/{person_id}` - Get specific person details
+- `POST /persons/` - Create new person
+- `PUT /persons/{person_id}` - Update person
+- `DELETE /persons/{person_id}` - Delete person
+- `GET /persons/search/` - Search persons by name
 
-### Async/Sync Handling
+### Relationships
+- `GET /relationships/` - List all relationships
+- `GET /relationships/{relationship_id}` - Get specific relationship
+- `POST /relationships/` - Create new relationship
+- `GET /relationships/person/{person_id}` - Get person's relationships
 
-Many nodes use async Claude API calls but are wrapped for sync LangGraph:
-```python
-def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
-    import asyncio
-    result = asyncio.run(self.async_method(state))
-    return {**state, "result": result}
+### Partnerships
+- `GET /partnerships/` - List all partnerships
+- `POST /partnerships/` - Create new partnership
+- `GET /partnerships/person/{person_id}` - Get person's partnerships
+
+### Visualization
+- `GET /family-tree/{root_person_id}` - Get hierarchical tree data
+- `GET /family-tree/descendants/{person_id}` - Get descendants tree
+- `GET /family-tree/ancestors/{person_id}` - Get ancestors tree
+
+### Statistics
+- `GET /stats/` - Get database statistics
+
+## Environment Variables
+
+Create a `.env` file (optional):
+
+```bash
+# Database
+STRUCTURED_DB_PATH=./data/structured_db/genealogy.db
+
+# API
+API_HOST=0.0.0.0
+API_PORT=8000
+
+# Application
+APP_TITLE=Carpenter Family Genealogy
+APP_DESCRIPTION=Family genealogy data management and visualization
 ```
-
-### State Management
-
-LangGraph state is a dictionary that flows through nodes. Always:
-- Include all previous state: `{**state, new_field: value}`
-- Use typed hints: `GenealogyState(TypedDict)`
-- Document expected state fields
-
-### Error Handling
-
-Critical points for error handling:
-1. PDF processing: File I/O, corrupt PDFs
-2. API calls: Rate limits, network issues
-3. Database operations: Missing data, schema changes
-
-## Testing Strategy
-
-### Unit Tests
-- Test individual nodes with mock state
-- Test database operations with temporary DBs
-- Test PDF processing with sample files
-
-### Integration Tests
-- Test full workflow end-to-end
-- Test PDF ingestion pipeline
-- Test UI interactions
-
-### Test Data
-Place test PDFs in `tests/fixtures/`
-
-## Deployment Considerations
-
-### Environment Variables
-Ensure `.env` is never committed. Use environment-specific configs:
-- `.env.development`
-- `.env.production`
-
-### Database Persistence
-Both databases are file-based:
-- Vector DB: `data/vector_store/` (directory)
-- Structured DB: `data/structured_db/genealogy.db` (single file)
-
-Backup strategy: Regular backups of both directories
-
-### API Key Security
-- Use separate API keys for dev/prod
-- Implement rate limiting
-- Monitor usage in Anthropic Console
 
 ## Future Enhancement Areas
 
-Based on prompt requirements:
-
-1. **Enhanced Structured Extraction**: Replace regex with NER models for entity extraction
-2. **Knowledge Graph**: Implement Neo4j integration for complex relationship queries
-3. **External Data Sources**: Add nodes for Ancestry.com, FamilySearch APIs
-4. **Caching Layer**: Implement query caching to reduce API costs
-5. **Multi-source Verification**: Cross-reference information across multiple sources
-6. **Timeline Visualization**: Generate visual timelines and family trees
-7. **Export Functionality**: GEDCOM export for compatibility with other tools
+1. **Authentication & Authorization**: Add user login and permissions
+2. **Advanced Search**: Full-text search across all fields
+3. **Photo/Document Upload**: Attach images and documents to persons
+4. **Timeline View**: Chronological view of family events
+5. **Export Features**: GEDCOM export for compatibility with other tools
+6. **Mobile App**: React Native or Flutter mobile interface
+7. **Collaborative Editing**: Multi-user editing with conflict resolution
+8. **DNA Integration**: Import and visualize DNA test results
 
 ## Troubleshooting
 
 ### Database Issues
 ```bash
-# Reset vector database
-rm -rf data/vector_store/*
-
-# Reset structured database
+# Reset database (development only)
 rm data/structured_db/genealogy.db
 
-# Re-ingest PDFs
-python ingest_pdf.py data/pdfs/
+# Re-populate from parsers
+cd parsers
+python populate_alexander_lineage.py
+# ... run other population scripts
 ```
 
 ### API Issues
-- Check API key in `.env`
-- Verify model name is correct
-- Check Anthropic API status: https://status.anthropic.com/
+```bash
+# Check if port is in use
+lsof -i :8000
+
+# Run with different port
+uvicorn api:app --port 8080
+```
+
+### Gradio Issues
+```bash
+# Check Gradio version
+pip show gradio
+
+# Reinstall if needed
+pip install --upgrade gradio
+```
 
 ### Import Errors
 ```bash
@@ -364,23 +374,21 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Key Files Reference
+## Testing
 
-**Entry Points**:
-- `app.py`: Main application (Gradio UI)
-- `ingest_pdf.py`: PDF ingestion script
+Currently no automated tests are implemented. To manually test:
 
-**Core Logic**:
-- `src/agents/workflow.py`: LangGraph orchestration
-- `src/database/vector_store.py`: Vector search
-- `src/database/structured_store.py`: SQL operations
-- `src/processors/pdf_processor.py`: Document processing
+1. **Data Entry Tool**: Run `python data_entry_tool.py` and test CRUD operations
+2. **API**: Use Swagger UI at http://localhost:8000/docs to test endpoints
+3. **Visualization**: Load family tree tab and verify rendering
 
-**Configuration**:
-- `.env`: Environment variables (not in git)
-- `src/utils/config.py`: Settings management
+Future: Add pytest-based test suite for API and database operations.
 
-**Documentation**:
-- `README.md`: User-facing documentation
-- `docs/CLAUDE_API_GUIDE.md`: API usage guide
-- This file: Developer guidance
+## Contributing
+
+When adding new features:
+1. Follow existing code structure
+2. Use type hints (Pydantic models)
+3. Update this CLAUDE.md file
+4. Test both API and UI interfaces
+5. Ensure data integrity in database operations

@@ -1,4 +1,4 @@
-"""Database modules for structured and vector storage."""
+"""Database modules for structured storage."""
 
 from .models import (
     Person,
@@ -11,7 +11,6 @@ from .models import (
     RetrievalResult,
     GenealogyResponse,
 )
-from .vector_store import VectorStore
 from .structured_store import StructuredStore
 
 __all__ = [
@@ -24,6 +23,5 @@ __all__ = [
     "QueryIntent",
     "RetrievalResult",
     "GenealogyResponse",
-    "VectorStore",
     "StructuredStore",
 ]

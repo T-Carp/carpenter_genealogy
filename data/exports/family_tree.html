@@ -1,0 +1,343 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #F8FAFC;
+        }
+        #title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: 600;
+            color: #1E293B;
+            margin-bottom: 20px;
+        }
+        #container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow: auto;
+        }
+        .node circle {
+            cursor: pointer;
+            stroke: #fff;
+            stroke-width: 2px;
+        }
+        .node text {
+            font-size: 12px;
+            font-family: sans-serif;
+            cursor: pointer;
+        }
+        .node.highlight circle {
+            stroke: #A855F7;
+            stroke-width: 4px;
+        }
+        .link {
+            fill: none;
+            stroke: #94A3B8;
+            stroke-opacity: 0.6;
+            stroke-width: 2px;
+        }
+        .tooltip {
+            position: absolute;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div id="title">Family Tree - Richard Keenum</div>
+    <div id="container"></div>
+    <div class="tooltip" id="tooltip"></div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        // Data
+        const data = {
+  "name": "Richard Keenum (1785-1853)",
+  "id": 1,
+  "fullName": "Richard Keenum",
+  "surname": "Keenum",
+  "dates": "1785-1853",
+  "birthYear": 1785,
+  "deathYear": 1853,
+  "children": [
+    {
+      "name": "Fanny Keenum",
+      "id": 3,
+      "fullName": "Fanny Keenum",
+      "surname": "Keenum",
+      "dates": "",
+      "birthYear": null,
+      "deathYear": null
+    },
+    {
+      "name": "Margaret Keenum (1809-1872)",
+      "id": 5,
+      "fullName": "Margaret Keenum",
+      "surname": "Keenum",
+      "dates": "1809-1872",
+      "birthYear": 1809,
+      "deathYear": 1872,
+      "children": [
+        {
+          "name": "Martha Cox (1830-?)",
+          "id": 15,
+          "fullName": "Martha Cox",
+          "surname": "Cox",
+          "dates": "1830-?",
+          "birthYear": 1830,
+          "deathYear": null
+        },
+        {
+          "name": "William Cox (1832-?)",
+          "id": 17,
+          "fullName": "William Richard Cox",
+          "surname": "Cox",
+          "dates": "1832-?",
+          "birthYear": 1832,
+          "deathYear": null
+        },
+        {
+          "name": "John Cox (1834-?)",
+          "id": 19,
+          "fullName": "John Aaron Cox",
+          "surname": "Cox",
+          "dates": "1834-?",
+          "birthYear": 1834,
+          "deathYear": null
+        },
+        {
+          "name": "Margaret Cox (1837-?)",
+          "id": 21,
+          "fullName": "Margaret M Cox",
+          "surname": "Cox",
+          "dates": "1837-?",
+          "birthYear": 1837,
+          "deathYear": null
+        },
+        {
+          "name": "Catherine Cox (1839-1921)",
+          "id": 23,
+          "fullName": "Catherine Frances Cox",
+          "surname": "Cox",
+          "dates": "1839-1921",
+          "birthYear": 1839,
+          "deathYear": 1921
+        },
+        {
+          "name": "Joel Cox (1842-?)",
+          "id": 25,
+          "fullName": "Joel C Cox",
+          "surname": "Cox",
+          "dates": "1842-?",
+          "birthYear": 1842,
+          "deathYear": null
+        },
+        {
+          "name": "Amanda Cox (1848-?)",
+          "id": 26,
+          "fullName": "Amanda V Cox",
+          "surname": "Cox",
+          "dates": "1848-?",
+          "birthYear": 1848,
+          "deathYear": null
+        }
+      ]
+    },
+    {
+      "name": "Elizabeth Keenum",
+      "id": 7,
+      "fullName": "Elizabeth Keenum",
+      "surname": "Keenum",
+      "dates": "",
+      "birthYear": null,
+      "deathYear": null
+    },
+    {
+      "name": "Frances Keenum",
+      "id": 9,
+      "fullName": "Frances L Keenum",
+      "surname": "Keenum",
+      "dates": "",
+      "birthYear": null,
+      "deathYear": null
+    },
+    {
+      "name": "Catharen Keenum (1817-1880)",
+      "id": 11,
+      "fullName": "Catharen Keenum",
+      "surname": "Keenum",
+      "dates": "1817-1880",
+      "birthYear": 1817,
+      "deathYear": 1880
+    },
+    {
+      "name": "Luretta Keenum (1820-?)",
+      "id": 12,
+      "fullName": "Luretta Keenum",
+      "surname": "Keenum",
+      "dates": "1820-?",
+      "birthYear": 1820,
+      "deathYear": null
+    },
+    {
+      "name": "James Keenum (1832-?)",
+      "id": 13,
+      "fullName": "James Middleton Keenum",
+      "surname": "Keenum",
+      "dates": "1832-?",
+      "birthYear": 1832,
+      "deathYear": null,
+      "children": [
+        {
+          "name": "Ami Keenum (1854-?)",
+          "id": 27,
+          "fullName": "Ami Keenum",
+          "surname": "Keenum",
+          "dates": "1854-?",
+          "birthYear": 1854,
+          "deathYear": null
+        },
+        {
+          "name": "William Keenum (1856-?)",
+          "id": 28,
+          "fullName": "William Keenum",
+          "surname": "Keenum",
+          "dates": "1856-?",
+          "birthYear": 1856,
+          "deathYear": null
+        },
+        {
+          "name": "Charles Keenum (1860-?)",
+          "id": 29,
+          "fullName": "Charles Keenum",
+          "surname": "Keenum",
+          "dates": "1860-?",
+          "birthYear": 1860,
+          "deathYear": null
+        }
+      ]
+    }
+  ]
+};
+        const surnameColors = {"Cox": "#1F8297", "Cunningham": "#059669", "Keenum": "#DC2626", "Lucas": "#7C3AED", "Mason": "#EA580C", "Neff": "#0891B2", "Rowe": "#CA8A04", "Thompson": "#BE123C", "Todd": "#4F46E5", "Watson": "#16A34A", "Williams": "#1F8297"};
+        const highlightId = null;
+
+        // Dimensions
+        const width = 1400;
+        const marginTop = 10;
+        const marginRight = 120;
+        const marginBottom = 10;
+        const marginLeft = 40;
+
+        // Create hierarchy
+        const root = d3.hierarchy(data);
+        const dx = 25;
+        const dy = 200;
+
+        // Create tree layout
+        const tree = d3.tree().nodeSize([dx, dy]);
+        tree(root);
+
+        // Compute extent
+        let x0 = Infinity;
+        let x1 = -Infinity;
+        root.each(d => {
+            if (d.x > x1) x1 = d.x;
+            if (d.x < x0) x0 = d.x;
+        });
+
+        const height = x1 - x0 + marginTop + marginBottom;
+
+        // Create SVG
+        const svg = d3.select("#container")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("viewBox", [0, 0, width, height])
+            .attr("style", "max-width: 100%; height: auto;");
+
+        const g = svg.append("g")
+            .attr("transform", `translate(${marginLeft},${marginTop - x0})`);
+
+        // Links
+        g.append("g")
+            .attr("fill", "none")
+            .attr("stroke", "#94A3B8")
+            .attr("stroke-opacity", 0.4)
+            .attr("stroke-width", 2)
+            .selectAll("path")
+            .data(root.links())
+            .join("path")
+            .attr("class", "link")
+            .attr("d", d3.linkHorizontal()
+                .x(d => d.y)
+                .y(d => d.x));
+
+        // Nodes
+        const node = g.append("g")
+            .selectAll("g")
+            .data(root.descendants())
+            .join("g")
+            .attr("transform", d => `translate(${d.y},${d.x})`)
+            .attr("class", d => d.data.id === highlightId ? "node highlight" : "node");
+
+        // Node circles
+        node.append("circle")
+            .attr("r", 6)
+            .attr("fill", d => {
+                const surname = d.data.surname || "Unknown";
+                return surnameColors[surname] || "#64748B";
+            });
+
+        // Node labels
+        node.append("text")
+            .attr("dy", "0.32em")
+            .attr("x", d => d.children ? -10 : 10)
+            .attr("text-anchor", d => d.children ? "end" : "start")
+            .text(d => d.data.name)
+            .attr("stroke", "white")
+            .attr("stroke-width", 3)
+            .attr("paint-order", "stroke")
+            .style("font-size", "12px");
+
+        // Tooltip
+        const tooltip = d3.select("#tooltip");
+
+        node.on("mouseover", (event, d) => {
+            tooltip.style("opacity", 1)
+                .html(`
+                    <strong>${d.data.fullName}</strong><br/>
+                    ${d.data.dates ? 'Dates: ' + d.data.dates : 'Dates unknown'}
+                `)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 10) + "px");
+        })
+        .on("mouseout", () => {
+            tooltip.style("opacity", 0);
+        });
+
+        // Make draggable/zoomable
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 3])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+
+        svg.call(zoom);
+    </script>
+</body>
+</html>

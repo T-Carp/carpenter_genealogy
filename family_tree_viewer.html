@@ -1,0 +1,2282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Tree Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #F1F5F9;
+            overflow-x: hidden;
+        }
+
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background: white;
+            border-bottom: 2px solid #E2E8F0;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        header h1 {
+            color: #1E293B;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: #64748B;
+            font-size: 14px;
+        }
+
+        /* Controls Panel */
+        #controls-panel {
+            background: white;
+            border-bottom: 1px solid #E2E8F0;
+            padding: 20px;
+            transition: all 0.3s ease;
+            max-height: 1000px;
+            overflow: hidden;
+        }
+
+        #controls-panel.collapsed {
+            max-height: 0;
+            padding: 0 20px;
+            border-bottom: none;
+        }
+
+        /* Toggle Controls Button */
+        .toggle-controls-btn {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            background: #1F8297;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 100;
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .toggle-controls-btn:hover {
+            background: #166578;
+        }
+
+        .toggle-controls-btn.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        /* Restore Controls Button (shown when collapsed) */
+        #restore-controls-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #1F8297;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none;
+            transition: background 0.2s;
+        }
+
+        #restore-controls-btn:hover {
+            background: #166578;
+        }
+
+        #restore-controls-btn.visible {
+            display: block;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-group.wide {
+            min-width: span 2;
+        }
+
+        .control-group label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            margin-bottom: 5px;
+        }
+
+        .control-group input,
+        .control-group select {
+            padding: 8px 12px;
+            border: 1px solid #CBD5E1;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #1E293B;
+        }
+
+        .control-group input:focus,
+        .control-group select:focus {
+            outline: none;
+            border-color: #1F8297;
+            box-shadow: 0 0 0 3px rgba(31, 130, 151, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .checkbox-group label {
+            font-size: 14px;
+            color: #475569;
+            margin: 0;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #1F8297;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #166777;
+        }
+
+        button:disabled {
+            background: #94A3B8;
+            cursor: not-allowed;
+        }
+
+        /* Status Bar */
+        #status-bar {
+            background: #F8FAFC;
+            border-bottom: 1px solid #E2E8F0;
+            padding: 10px 20px;
+            font-size: 13px;
+            color: #64748B;
+        }
+
+        #status-bar.error {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
+
+        #status-bar.success {
+            background: #D1FAE5;
+            color: #065F46;
+        }
+
+        /* Visualization Container */
+        #viz-container {
+            flex: 1;
+            background: white;
+            overflow: auto;
+            position: relative;
+        }
+
+        #viz-container svg {
+            display: block;
+            margin: 0 auto;
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #64748B;
+            font-size: 16px;
+        }
+
+        .spinner {
+            border: 3px solid #E2E8F0;
+            border-top: 3px solid #1F8297;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* D3 Specific Styles */
+        .node circle {
+            cursor: pointer;
+            stroke: #fff;
+            stroke-width: 2px;
+        }
+
+        .node text {
+            font-size: 12px;
+            font-family: sans-serif;
+            cursor: pointer;
+        }
+
+        .node.highlight circle {
+            stroke: #A855F7;
+            stroke-width: 4px;
+        }
+
+        .link {
+            fill: none;
+            stroke: #94A3B8;
+            stroke-opacity: 0.5;
+            stroke-width: 2px;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            border-radius: 6px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 300px;
+            z-index: 1000;
+        }
+
+        .tooltip strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #64748B;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* Modal Dialog */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-dialog {
+            background: white;
+            border-radius: 12px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .modal-header {
+            padding: 24px;
+            border-bottom: 1px solid #E2E8F0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .modal-header h2 {
+            font-size: 24px;
+            color: #1E293B;
+            margin: 0;
+        }
+
+        .modal-header p {
+            font-size: 14px;
+            color: #64748B;
+            margin-top: 4px;
+        }
+
+        .modal-close {
+            background: #F1F5F9;
+            border: none;
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #475569;
+            font-size: 20px;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .modal-close:hover {
+            background: #E2E8F0;
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-section {
+            margin-bottom: 24px;
+        }
+
+        .modal-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .modal-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1E293B;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #E2E8F0;
+        }
+
+        .person-details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-value {
+            font-size: 14px;
+            color: #1E293B;
+            margin-top: 4px;
+        }
+
+        .lineage-path {
+            margin-top: 12px;
+        }
+
+        .lineage-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 8px 0;
+        }
+
+        .lineage-item:first-child {
+            color: #059669;
+            font-weight: 600;
+        }
+
+        .lineage-item.current {
+            background: #FEF3C7;
+            padding: 8px 12px;
+            margin: 4px -12px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .lineage-indent {
+            width: 24px;
+            color: #94A3B8;
+        }
+
+        .lineage-name {
+            flex: 1;
+        }
+
+        .lineage-dates {
+            color: #64748B;
+            font-size: 13px;
+        }
+
+        .relationship-desc {
+            background: #F0F9FF;
+            border-left: 3px solid #0EA5E9;
+            padding: 12px;
+            margin-top: 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #0C4A6E;
+            font-style: italic;
+        }
+
+        .family-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .family-member {
+            padding: 10px 12px;
+            border-bottom: 1px solid #F1F5F9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .family-member:hover {
+            background: #F8FAFC;
+        }
+
+        .family-member:last-child {
+            border-bottom: none;
+        }
+
+        .family-member-name {
+            font-size: 14px;
+            color: #1E293B;
+            font-weight: 500;
+        }
+
+        .family-member-info {
+            font-size: 13px;
+            color: #64748B;
+            margin-top: 2px;
+        }
+
+        .family-member-badge {
+            background: #F1F5F9;
+            color: #475569;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #E2E8F0;
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-footer button {
+            flex: 1;
+        }
+
+        .empty-family {
+            color: #94A3B8;
+            font-size: 14px;
+            font-style: italic;
+            padding: 12px 0;
+        }
+
+        /* Autocomplete Styles */
+        .autocomplete-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .autocomplete-container input {
+            width: 100%;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #CBD5E1;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            z-index: 1000;
+            display: none;
+        }
+
+        .autocomplete-dropdown.active {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #F1F5F9;
+            transition: background-color 0.2s;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background-color: #F1F5F9;
+        }
+
+        .autocomplete-item-name {
+            font-weight: 500;
+            color: #1E293B;
+            margin-bottom: 2px;
+        }
+
+        .autocomplete-item-details {
+            font-size: 12px;
+            color: #64748B;
+        }
+
+        .autocomplete-no-results {
+            padding: 12px;
+            text-align: center;
+            color: #94A3B8;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Header -->
+        <header>
+            <h1>Carpenter Family Genealogy</h1>
+            <p>Interactive Family Tree Visualization</p>
+            <button class="toggle-controls-btn" onclick="toggleControls()">Hide Controls</button>
+        </header>
+
+        <!-- Restore Controls Button (shown when controls are hidden) -->
+        <button id="restore-controls-btn" onclick="toggleControls()">
+            ▼ Show Controls
+        </button>
+
+        <!-- Controls Panel -->
+        <div id="controls-panel">
+            <div class="controls-grid">
+                <div class="control-group wide">
+                    <label for="person-search">Person Search</label>
+                    <div class="autocomplete-container">
+                        <input
+                            type="text"
+                            id="person-search"
+                            placeholder="Type to search for a person..."
+                            autocomplete="off"
+                        />
+                        <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label for="generations">Generations to Display</label>
+                    <select id="generations">
+                        <option value="1">1</option>
+                        <option value="2" selected>2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10 (show all)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="surname-filter">Filter by Surname</label>
+                    <select id="surname-filter">
+                        <option value="">All Surnames</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="include-ancestors" checked />
+                <label for="include-ancestors">Include Ancestors</label>
+
+                <input type="checkbox" id="include-descendants" checked style="margin-left: 20px;" />
+                <label for="include-descendants">Include Descendants</label>
+
+                <input type="checkbox" id="color-by-surname" checked style="margin-left: 20px;" />
+                <label for="color-by-surname">Color by Surname</label>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <button id="generate-btn">Generate Tree</button>
+                <button id="expand-all-btn" style="background: #059669; margin-left: 10px;" disabled>Expand All</button>
+                <button id="refresh-btn" style="background: #64748B; margin-left: 10px;">Refresh Data</button>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div id="status-bar">
+            Click "Generate Tree" to visualize the family tree
+        </div>
+
+        <!-- Visualization Container -->
+        <div id="viz-container">
+            <div class="empty-state">
+                <h3>Welcome to the Family Tree Viewer</h3>
+                <p>Use the controls above to customize your view, then click "Generate Tree"</p>
+            </div>
+        </div>
+
+        <!-- Tooltip -->
+        <div class="tooltip" id="tooltip"></div>
+    </div>
+
+    <!-- Person Details Modal -->
+    <div class="modal-overlay" id="person-modal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modal-person-name">Loading...</h2>
+                    <p id="modal-person-dates"></p>
+                </div>
+                <button class="modal-close" onclick="closePersonModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Person Details Section -->
+                <div class="modal-section">
+                    <h3>Person Details</h3>
+                    <div class="person-details-grid" id="person-details-content">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Lineage Section -->
+                <div class="modal-section" id="lineage-section" style="display: none;">
+                    <h3>Lineage to Earliest Keenum Ancestor</h3>
+                    <div class="lineage-path" id="lineage-content">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Direct Family Section -->
+                <div class="modal-section">
+                    <h3>Direct Family Relationships</h3>
+                    <div id="family-content">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="focusTreeOnPerson()" id="focus-tree-btn">Focus Tree on This Person</button>
+                <button onclick="closePersonModal()" style="background: #64748B;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:8000/api';
+
+        // State
+        let currentData = null;
+        let searchResults = [];
+        let expandedNodes = new Set(); // Track which nodes are expanded (descendants)
+        let expandedAncestors = new Set(); // Track which nodes have ancestors expanded (parents/siblings)
+        let ancestorData = new Map(); // Store fetched ancestor data: nodeId -> {parents: [], siblings: []}
+        let fullGraphData = null; // Store full graph for re-rendering
+        let currentRootId = null;
+        let currentSurnameColors = {};
+        let selectedPersonId = null; // Track selected person from autocomplete
+        let selectedPersonName = ''; // Track selected person's name
+        let controlsVisible = true; // Track controls panel visibility
+
+        // D3 tree state for animations
+        let currentSvg = null;
+        let currentG = null;
+        let currentTreeLayout = null;
+        let currentRoot = null;
+
+        // Toggle controls panel visibility
+        function toggleControls() {
+            const controlsPanel = document.getElementById('controls-panel');
+            const restoreBtn = document.getElementById('restore-controls-btn');
+            const toggleBtn = document.querySelector('.toggle-controls-btn');
+
+            controlsVisible = !controlsVisible;
+
+            if (controlsVisible) {
+                // Show controls
+                controlsPanel.classList.remove('collapsed');
+                restoreBtn.classList.remove('visible');
+                toggleBtn.classList.remove('hidden');
+                toggleBtn.textContent = 'Hide Controls';
+            } else {
+                // Hide controls
+                controlsPanel.classList.add('collapsed');
+                restoreBtn.classList.add('visible');
+                toggleBtn.classList.add('hidden');
+                toggleBtn.textContent = 'Show Controls';
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSurnames();
+            setupEventListeners();
+        });
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('generate-btn').addEventListener('click', generateTree);
+            document.getElementById('expand-all-btn').addEventListener('click', expandAll);
+            document.getElementById('refresh-btn').addEventListener('click', () => {
+                loadSurnames();
+                showStatus('Data refreshed', 'success');
+            });
+
+            // Autocomplete search functionality
+            const searchInput = document.getElementById('person-search');
+            const dropdown = document.getElementById('autocomplete-dropdown');
+            console.log('Setup: searchInput element:', searchInput);
+            console.log('Setup: dropdown element:', dropdown);
+
+            if (!searchInput) {
+                console.error('ERROR: person-search input not found!');
+                return;
+            }
+            if (!dropdown) {
+                console.error('ERROR: autocomplete-dropdown not found!');
+                return;
+            }
+
+            let searchTimeout;
+
+            // Input event - search as user types
+            searchInput.addEventListener('input', (e) => {
+                console.log('Input event fired, value:', e.target.value);
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+
+                if (query.length >= 2) {
+                    console.log('Query length >= 2, scheduling search for:', query);
+                    searchTimeout = setTimeout(() => searchPeople(query), 300);
+                } else {
+                    console.log('Query too short, hiding autocomplete');
+                    hideAutocomplete();
+                }
+            });
+            console.log('Input event listener attached');
+
+            // Focus event - show dropdown if there are results
+            searchInput.addEventListener('focus', (e) => {
+                const query = e.target.value.trim();
+                if (query.length >= 2 && searchResults.length > 0) {
+                    showAutocomplete();
+                }
+            });
+
+            // Click outside to close dropdown
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    hideAutocomplete();
+                }
+            });
+
+            // Keyboard navigation
+            searchInput.addEventListener('keydown', (e) => {
+                handleAutocompleteKeyboard(e);
+            });
+        }
+
+        // Load surnames for filter dropdown
+        async function loadSurnames() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/genealogy/surnames`);
+                if (!response.ok) throw new Error('Failed to load surnames');
+
+                const surnames = await response.json();
+                const select = document.getElementById('surname-filter');
+                select.innerHTML = '<option value="">All Surnames</option>';
+                surnames.forEach(surname => {
+                    const option = document.createElement('option');
+                    option.value = surname;
+                    option.textContent = surname;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading surnames:', error);
+            }
+        }
+
+        // Search for people
+        async function searchPeople(query) {
+            try {
+                console.log('Searching for:', query);
+                const response = await fetch(`${API_BASE_URL}/genealogy/search?q=${encodeURIComponent(query)}&limit=50`);
+                console.log('Response status:', response.status);
+                if (!response.ok) throw new Error('Search failed');
+
+                const data = await response.json();
+                console.log('Search results:', data);
+                searchResults = data.results;
+                console.log('Calling updateAutocompleteDropdown with', searchResults.length, 'results');
+                updateAutocompleteDropdown(searchResults);
+                console.log('Dropdown updated successfully');
+            } catch (error) {
+                console.error('Error searching:', error);
+                console.error('Error stack:', error.stack);
+                showStatus('Error searching for people', 'error');
+            }
+        }
+
+        // Update autocomplete dropdown with results
+        function updateAutocompleteDropdown(results) {
+            console.log('updateAutocompleteDropdown called with:', results);
+            const dropdown = document.getElementById('autocomplete-dropdown');
+            console.log('Dropdown element:', dropdown);
+
+            if (!dropdown) {
+                console.error('Dropdown element not found!');
+                return;
+            }
+
+            if (results.length === 0) {
+                console.log('No results, showing no results message');
+                dropdown.innerHTML = '<div class="autocomplete-no-results">No people found</div>';
+                showAutocomplete();
+                return;
+            }
+
+            console.log('Populating dropdown with', results.length, 'results');
+            dropdown.innerHTML = '';
+            results.forEach((person, index) => {
+                const item = document.createElement('div');
+                item.className = 'autocomplete-item';
+                item.dataset.personId = person.id;
+                item.dataset.personName = person.name;
+                item.dataset.index = index;
+
+                // person.name already includes dates from the API
+                item.innerHTML = `
+                    <div class="autocomplete-item-name">${person.name}</div>
+                `;
+
+                item.addEventListener('click', () => selectPerson(person));
+                dropdown.appendChild(item);
+            });
+
+            console.log('Showing autocomplete dropdown');
+            showAutocomplete();
+        }
+
+        // Show autocomplete dropdown
+        function showAutocomplete() {
+            console.log('showAutocomplete called');
+            const dropdown = document.getElementById('autocomplete-dropdown');
+            console.log('Dropdown element:', dropdown);
+            if (dropdown) {
+                dropdown.classList.add('active');
+                console.log('Added active class, classList:', dropdown.classList);
+            } else {
+                console.error('Dropdown element not found in showAutocomplete!');
+            }
+        }
+
+        // Hide autocomplete dropdown
+        function hideAutocomplete() {
+            const dropdown = document.getElementById('autocomplete-dropdown');
+            dropdown.classList.remove('active');
+        }
+
+        // Select a person from autocomplete
+        function selectPerson(person) {
+            const searchInput = document.getElementById('person-search');
+
+            // person.name already includes dates from the API, so use it directly
+            searchInput.value = person.name;
+            selectedPersonId = person.id;
+            selectedPersonName = person.name;
+            hideAutocomplete();
+
+            showStatus(`Selected: ${person.name}`, 'success');
+        }
+
+        // Clear selected person
+        function clearSelection() {
+            selectedPersonId = null;
+            selectedPersonName = '';
+        }
+
+        // Handle keyboard navigation in autocomplete
+        function handleAutocompleteKeyboard(e) {
+            const dropdown = document.getElementById('autocomplete-dropdown');
+            if (!dropdown.classList.contains('active')) return;
+
+            const items = dropdown.querySelectorAll('.autocomplete-item');
+            if (items.length === 0) return;
+
+            const currentSelected = dropdown.querySelector('.autocomplete-item.selected');
+            let currentIndex = currentSelected ? parseInt(currentSelected.dataset.index) : -1;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                currentIndex = Math.min(currentIndex + 1, items.length - 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                currentIndex = Math.max(currentIndex - 1, 0);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (currentIndex >= 0 && searchResults[currentIndex]) {
+                    selectPerson(searchResults[currentIndex]);
+                }
+                return;
+            } else if (e.key === 'Escape') {
+                hideAutocomplete();
+                return;
+            } else {
+                return;
+            }
+
+            // Update selection highlighting
+            items.forEach(item => item.classList.remove('selected'));
+            if (currentIndex >= 0) {
+                items[currentIndex].classList.add('selected');
+                items[currentIndex].scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        // Generate tree visualization
+        async function generateTree() {
+            const container = document.getElementById('viz-container');
+            const generateBtn = document.getElementById('generate-btn');
+
+            // Get parameters
+            const rootId = selectedPersonId; // Use selected person from autocomplete
+            const userSelectedGenerations = parseInt(document.getElementById('generations').value);
+            const includeAncestors = document.getElementById('include-ancestors').checked;
+            const includeDescendants = document.getElementById('include-descendants').checked;
+            const surnameFilter = document.getElementById('surname-filter').value;
+            const colorBySurname = document.getElementById('color-by-surname').checked;
+
+            // Show loading state
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading family tree...</div>';
+            generateBtn.disabled = true;
+            showStatus('Loading data from API...', '');
+
+            try {
+                // Build API URL with parameters
+                // IMPORTANT: Always fetch 10 generations to have full data for expansion
+                // The userSelectedGenerations only controls initial display depth
+                let url = `${API_BASE_URL}/genealogy/graph?generations=10&include_ancestors=${includeAncestors}&include_descendants=${includeDescendants}`;
+                if (rootId) url += `&root_id=${rootId}`;
+                if (surnameFilter) url += `&surname_filter=${encodeURIComponent(surnameFilter)}`;
+
+                // Fetch data
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status} ${response.statusText}`);
+                }
+
+                const graphData = await response.json();
+                currentData = graphData;
+
+                // Validate data
+                if (!graphData.nodes || graphData.nodes.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>No Data Found</h3>
+                            <p>No people match your search criteria. Try adjusting your filters.</p>
+                        </div>
+                    `;
+                    showStatus('No data found matching criteria', 'error');
+                    return;
+                }
+
+                // Store graph data for re-rendering on expand/collapse
+                fullGraphData = graphData;
+                currentRootId = rootId ? parseInt(rootId) : null;
+
+                // Initialize expanded nodes based on user's selected generation depth
+                expandedNodes = new Set();
+                expandedAncestors.clear();
+                ancestorData.clear();
+                initializeExpandedNodes(graphData, currentRootId, userSelectedGenerations);
+
+                // Convert graph to hierarchical tree with expansion limits
+                const treeData = graphToTreeWithExpansion(graphData, currentRootId);
+
+                if (!treeData) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>Unable to Build Tree</h3>
+                            <p>Could not create hierarchical tree structure from the data.</p>
+                        </div>
+                    `;
+                    showStatus('Error building tree structure', 'error');
+                    return;
+                }
+
+                // Generate surname colors if needed
+                const surnameColors = colorBySurname ? generateSurnameColors(graphData) : {};
+                currentSurnameColors = surnameColors;
+
+                // Render D3 tree
+                container.innerHTML = '';
+                renderD3Tree(container, treeData, surnameColors);
+
+                // Enable expand all button
+                document.getElementById('expand-all-btn').disabled = false;
+
+                showStatus(`Showing ${graphData.nodes.length} people and ${graphData.edges.length} relationships (click nodes to expand)`, 'success');
+            } catch (error) {
+                console.error('Error generating tree:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Error</h3>
+                        <p>${error.message}</p>
+                        <p style="margin-top: 10px; font-size: 12px;">Make sure the API server is running on port 8000</p>
+                    </div>
+                `;
+                showStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                generateBtn.disabled = false;
+            }
+        }
+
+        // Initialize expanded nodes for first N generations
+        function initializeExpandedNodes(graphData, rootId, depth) {
+            const { nodes, edges } = graphData;
+
+            // Find root
+            let root = null;
+            if (rootId) {
+                root = nodes.find(n => n.id === rootId);
+            } else {
+                // Find first person with no parents
+                const childIds = new Set(edges.filter(e => e.relationship_type === 'biological').map(e => e.target));
+                root = nodes.find(n => !childIds.has(n.id));
+            }
+
+            if (!root) return;
+
+            // BFS to expand first N generations
+            const queue = [[root.id, 0]];
+            const visited = new Set();
+
+            while (queue.length > 0) {
+                const [nodeId, level] = queue.shift();
+                if (visited.has(nodeId) || level > depth) continue;
+                visited.add(nodeId);
+                expandedNodes.add(nodeId);
+
+                // Add children to queue
+                edges.forEach(edge => {
+                    if (edge.relationship_type === 'biological' && edge.source === nodeId) {
+                        queue.push([edge.target, level + 1]);
+                    }
+                });
+            }
+        }
+
+        // Expand a node with animation
+        function expandNode(nodeId) {
+            if (!fullGraphData || !currentRoot) return;
+
+            // Add node to expanded set
+            expandedNodes.add(nodeId);
+
+            // Add all direct children to expanded set
+            fullGraphData.edges.forEach(edge => {
+                if (edge.relationship_type === 'biological' && edge.source === nodeId) {
+                    expandedNodes.add(edge.target);
+                }
+            });
+
+            // Rebuild tree data
+            const treeData = graphToTreeWithExpansion(fullGraphData, currentRootId);
+            if (!treeData) return;
+
+            // Update the tree with animation
+            updateTree(treeData, nodeId);
+        }
+
+        // Expand ancestors (parents and siblings) for a node
+        async function expandAncestors(nodeId) {
+            if (!fullGraphData) return;
+
+            try {
+                showStatus('Loading ancestors...', '');
+
+                // Fetch family data from API
+                const response = await fetch(`${API_BASE_URL}/genealogy/family/${nodeId}`);
+                if (!response.ok) throw new Error('Failed to load family data');
+
+                const familyData = await response.json();
+
+                // Store ancestor data
+                ancestorData.set(nodeId, {
+                    parents: familyData.parents || [],
+                    siblings: familyData.siblings || []
+                });
+
+                // Mark this node as having expanded ancestors
+                expandedAncestors.add(nodeId);
+
+                // Rebuild tree with ancestors
+                const treeData = graphToTreeWithExpansion(fullGraphData, currentRootId);
+                if (!treeData) return;
+
+                // Update the tree with animation
+                updateTree(treeData, nodeId);
+
+                showStatus('Ancestors loaded', 'success');
+            } catch (error) {
+                console.error('Error loading ancestors:', error);
+                showStatus('Error loading ancestors', 'error');
+            }
+        }
+
+        // Expand all nodes at once - keeps current root, expands everything
+        async function expandAll() {
+            const expandBtn = document.getElementById('expand-all-btn');
+            const container = document.getElementById('viz-container');
+
+            if (!fullGraphData) {
+                showStatus('Please generate a tree first', 'error');
+                return;
+            }
+
+            expandBtn.disabled = true;
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Expanding all nodes...</div>';
+            showStatus('Fetching full tree data...', '');
+
+            try {
+                // Get current root from selected person
+                const rootId = selectedPersonId;
+                const includeAncestors = document.getElementById('include-ancestors').checked;
+                const includeDescendants = document.getElementById('include-descendants').checked;
+                const surnameFilter = document.getElementById('surname-filter').value;
+
+                // Fetch with 10 generations to get the full tree for this root
+                let url = `${API_BASE_URL}/genealogy/graph?generations=10&include_ancestors=${includeAncestors}&include_descendants=${includeDescendants}`;
+                if (rootId) url += `&root_id=${rootId}`;
+                if (surnameFilter) url += `&surname_filter=${encodeURIComponent(surnameFilter)}`;
+
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+
+                const graphData = await response.json();
+
+                if (!graphData.nodes || graphData.nodes.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><h3>No Data</h3></div>';
+                    expandBtn.disabled = false;
+                    showStatus('No data found', 'error');
+                    return;
+                }
+
+                // Update fullGraphData
+                fullGraphData = graphData;
+
+                // Add ALL nodes to expanded set
+                expandedNodes.clear();
+                expandedAncestors.clear();
+                ancestorData.clear();
+                graphData.nodes.forEach(node => {
+                    expandedNodes.add(node.id);
+                });
+
+                // Build tree with all nodes expanded, keeping the current root
+                const treeData = graphToTreeWithExpansion(graphData, rootId ? parseInt(rootId) : null);
+                if (!treeData) {
+                    expandBtn.disabled = false;
+                    showStatus('Error building tree', 'error');
+                    return;
+                }
+
+                // Re-render
+                container.innerHTML = '';
+                renderD3Tree(container, treeData, currentSurnameColors);
+
+                expandBtn.disabled = false;
+                showStatus(`Showing all ${graphData.nodes.length} people and ${graphData.edges.length} relationships (fully expanded)`, 'success');
+            } catch (error) {
+                console.error('Error in expandAll:', error);
+                container.innerHTML = '<div class="empty-state"><h3>Error</h3><p>Failed to load data</p></div>';
+                expandBtn.disabled = false;
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Convert flat graph to hierarchical tree (respecting expansion state)
+        function graphToTreeWithExpansion(graphData, rootId) {
+            const { nodes, edges } = graphData;
+
+            // Create node map
+            const nodeMap = new Map();
+            nodes.forEach(node => {
+                nodeMap.set(node.id, {
+                    ...node,
+                    children: []
+                });
+            });
+
+            // Build child lists for each node
+            const nodeChildren = new Map();
+            const hasAncestorsExpanded = expandedAncestors.size > 0;
+
+            // Track nodes that are part of biological lineage
+            const biologicalNodes = new Set();
+
+            edges.forEach(edge => {
+                if (edge.relationship_type === 'biological') {
+                    biologicalNodes.add(edge.source);
+                    biologicalNodes.add(edge.target);
+                    if (!nodeChildren.has(edge.source)) {
+                        nodeChildren.set(edge.source, []);
+                    }
+                    nodeChildren.get(edge.source).push(edge.target);
+                }
+            });
+
+            // When ancestors are expanded, filter out spouse nodes (nodes not in biological lineage)
+            let filteredNodeMap = nodeMap;
+            if (hasAncestorsExpanded) {
+                filteredNodeMap = new Map();
+                for (const [nodeId, node] of nodeMap) {
+                    // Only include nodes that are part of biological lineage or in ancestor data
+                    if (biologicalNodes.has(nodeId) ||
+                        (ancestorData.has(rootId) &&
+                         (ancestorData.get(rootId).parents.some(p => p.id === nodeId) ||
+                          ancestorData.get(rootId).siblings.some(s => s.id === nodeId)))) {
+                        filteredNodeMap.set(nodeId, node);
+                    }
+                }
+                // Update nodeMap reference
+                nodeMap.clear();
+                filteredNodeMap.forEach((value, key) => nodeMap.set(key, value));
+            }
+
+            // Find root
+            let root;
+            if (rootId && nodeMap.has(rootId)) {
+                root = nodeMap.get(rootId);
+            } else {
+                const childIds = new Set(edges.filter(e => e.relationship_type === 'biological').map(e => e.target));
+                for (const [nodeId, node] of nodeMap) {
+                    if (!childIds.has(nodeId)) {
+                        root = node;
+                        break;
+                    }
+                }
+                if (!root && nodes.length > 0) {
+                    root = nodeMap.get(nodes[0].id);
+                }
+            }
+
+            if (!root) return null;
+
+            // Build tree recursively (only expanded nodes)
+            const visited = new Set();
+            function buildTree(nodeId) {
+                if (visited.has(nodeId)) return null;
+                visited.add(nodeId);
+
+                const node = nodeMap.get(nodeId);
+                if (!node) return null;
+
+                const treeNode = {
+                    name: formatName(node),
+                    id: node.id,
+                    fullName: node.full_name,
+                    surname: node.surname || '',
+                    dates: formatDates(node),
+                    birthYear: node.birth_year,
+                    deathYear: node.death_year,
+                };
+
+                // Check if node has children
+                const childIds = nodeChildren.get(nodeId) || [];
+                treeNode.hasChildren = childIds.length > 0;
+
+                // Check if this is the root and ancestors can be expanded
+                if (nodeId === root.id && !expandedAncestors.has(nodeId)) {
+                    treeNode.canExpandAncestors = true;
+                }
+
+                // Only add children if this node is expanded
+                if (expandedNodes.has(nodeId)) {
+                    const children = [];
+                    childIds.forEach(childId => {
+                        const childNode = buildTree(childId);
+                        if (childNode) {
+                            children.push(childNode);
+                        }
+                    });
+
+                    if (children.length > 0) {
+                        treeNode.children = children;
+                    }
+                }
+
+                return treeNode;
+            }
+
+            // Check if root has expanded ancestors
+            const rootTree = buildTree(root.id);
+
+            if (expandedAncestors.has(root.id) && ancestorData.has(root.id)) {
+                const family = ancestorData.get(root.id);
+                const parents = family.parents || [];
+                const siblings = family.siblings || [];
+
+                // Create expanded family structure without label nodes
+                if (parents.length > 0) {
+                    // Use first parent as the new root
+                    const firstParent = parents[0];
+                    const parentNode = {
+                        name: firstParent.name,
+                        id: firstParent.id,
+                        fullName: firstParent.name,
+                        surname: firstParent.name.split(' ').pop() || '',
+                        dates: firstParent.birth_year || firstParent.death_year ?
+                            `${firstParent.birth_year || '?'}-${firstParent.death_year || '?'}` : '',
+                        birthYear: firstParent.birth_year,
+                        deathYear: firstParent.death_year,
+                        children: []
+                    };
+
+                    // Add second parent as sibling if exists
+                    if (parents.length > 1) {
+                        const secondParent = parents[1];
+                        const secondParentNode = {
+                            name: secondParent.name,
+                            id: secondParent.id,
+                            fullName: secondParent.name,
+                            surname: secondParent.name.split(' ').pop() || '',
+                            dates: secondParent.birth_year || secondParent.death_year ?
+                                `${secondParent.birth_year || '?'}-${secondParent.death_year || '?'}` : '',
+                            birthYear: secondParent.birth_year,
+                            deathYear: secondParent.death_year,
+                            children: []
+                        };
+                        parentNode.children.push(secondParentNode);
+                    }
+
+                    // Add siblings as children
+                    siblings.forEach(sibling => {
+                        const siblingNode = {
+                            name: sibling.name,
+                            id: sibling.id,
+                            fullName: sibling.name,
+                            surname: sibling.name.split(' ').pop() || '',
+                            dates: sibling.birth_year || sibling.death_year ?
+                                `${sibling.birth_year || '?'}-${sibling.death_year || '?'}` : '',
+                            birthYear: sibling.birth_year,
+                            deathYear: sibling.death_year,
+                            hasChildren: true,
+                            isSibling: true
+                        };
+                        parentNode.children.push(siblingNode);
+                    });
+
+                    // Add root person with their descendants
+                    parentNode.children.push(rootTree);
+
+                    return parentNode;
+                }
+            }
+
+            return rootTree;
+        }
+
+        // Convert flat graph to hierarchical tree
+        function graphToTree(graphData, rootId) {
+            const { nodes, edges } = graphData;
+
+            // Create node map
+            const nodeMap = new Map();
+            nodes.forEach(node => {
+                nodeMap.set(node.id, {
+                    ...node,
+                    children: []
+                });
+            });
+
+            // Build parent-child relationships
+            const childToParents = new Map();
+            edges.forEach(edge => {
+                // Handle "biological" relationship type (source is parent, target is child)
+                if (edge.relationship_type === 'biological') {
+                    const parent = edge.source;
+                    const child = edge.target;
+
+                    if (!childToParents.has(child)) {
+                        childToParents.set(child, []);
+                    }
+                    childToParents.get(child).push(parent);
+                }
+            });
+
+            // Find root (person with no parents, or specified root)
+            let root;
+            if (rootId && nodeMap.has(rootId)) {
+                root = nodeMap.get(rootId);
+            } else {
+                // Find first person with no parents
+                for (const [nodeId, node] of nodeMap) {
+                    if (!childToParents.has(nodeId)) {
+                        root = node;
+                        break;
+                    }
+                }
+                // If everyone has parents (cycles), just pick the first node
+                if (!root && nodes.length > 0) {
+                    root = nodeMap.get(nodes[0].id);
+                }
+            }
+
+            if (!root) return null;
+
+            // Build tree recursively
+            const visited = new Set();
+            function buildTree(nodeId) {
+                if (visited.has(nodeId)) return null;
+                visited.add(nodeId);
+
+                const node = nodeMap.get(nodeId);
+                if (!node) return null;
+
+                const treeNode = {
+                    name: formatName(node),
+                    id: node.id,
+                    fullName: node.full_name,
+                    surname: node.surname || '',
+                    dates: formatDates(node),
+                    birthYear: node.birth_year,
+                    deathYear: node.death_year,
+                };
+
+                // Find children
+                const children = [];
+                edges.forEach(edge => {
+                    // Handle "biological" relationship type (source is parent, target is child)
+                    if (edge.relationship_type === 'biological' && edge.source === nodeId) {
+                        const childId = edge.target;
+                        const childNode = buildTree(childId);
+                        if (childNode) {
+                            children.push(childNode);
+                        }
+                    }
+                });
+
+                if (children.length > 0) {
+                    treeNode.children = children;
+                }
+
+                return treeNode;
+            }
+
+            return buildTree(root.id);
+        }
+
+        // Format person name for display
+        function formatName(node) {
+            let name = node.given_name || 'Unknown';
+            if (node.surname) {
+                name += ' ' + node.surname;
+            }
+            const dates = formatDates(node);
+            if (dates) {
+                name += ' (' + dates + ')';
+            }
+            return name;
+        }
+
+        // Format dates
+        function formatDates(node) {
+            const birth = node.birth_year || '?';
+            const death = node.death_year || '?';
+            if (birth === '?' && death === '?') return '';
+            return `${birth}-${death}`;
+        }
+
+        // Generate colors for surnames
+        function generateSurnameColors(graphData) {
+            const surnames = new Set();
+            graphData.nodes.forEach(node => {
+                if (node.surname) surnames.add(node.surname);
+            });
+
+            const colors = [
+                '#1F8297', '#059669', '#DC2626', '#7C3AED', '#EA580C',
+                '#0891B2', '#CA8A04', '#BE123C', '#4F46E5', '#16A34A'
+            ];
+
+            const surnameColors = {};
+            Array.from(surnames).sort().forEach((surname, i) => {
+                surnameColors[surname] = colors[i % colors.length];
+            });
+
+            return surnameColors;
+        }
+
+        // Render D3 tree (initial render or full re-render)
+        function renderD3Tree(container, treeData, surnameColors) {
+            // Clear container
+            container.innerHTML = '';
+
+            // Get container dimensions
+            const containerWidth = container.clientWidth;
+
+            // Margins
+            const marginTop = 20;
+            const marginRight = 150;
+            const marginBottom = 20;
+            const marginLeft = 50;
+
+            // Create hierarchy
+            const root = d3.hierarchy(treeData);
+            const dx = 30;  // Vertical spacing between nodes
+            const dy = 400; // Horizontal spacing between generations
+
+            // Store root and layout for updates
+            currentRoot = root;
+            currentTreeLayout = d3.tree().nodeSize([dx, dy]);
+
+            // Apply layout
+            currentTreeLayout(root);
+
+            // Store old positions for each node (for animation on updates)
+            root.each(d => {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+
+            // Compute extent for height (vertical)
+            let x0 = Infinity;
+            let x1 = -Infinity;
+            root.each(d => {
+                if (d.x > x1) x1 = d.x;
+                if (d.x < x0) x0 = d.x;
+            });
+
+            const height = x1 - x0 + marginTop + marginBottom;
+            const width = (root.height + 1) * dy + marginLeft + marginRight;
+
+            // Create SVG
+            currentSvg = d3.select(container)
+                .append('svg')
+                .attr('viewBox', [0, 0, width, height])
+                .attr('style', 'width: 100%; height: 100%; display: block;');
+
+            currentG = currentSvg.append('g');
+
+            // Store initial transform
+            const initialTransform = d3.zoomIdentity.translate(marginLeft, marginTop - x0);
+
+            // Create link group
+            currentG.append('g').attr('class', 'links');
+
+            // Create node group
+            currentG.append('g').attr('class', 'nodes');
+
+            // Initial update
+            update(root, surnameColors, null);
+
+            // Make draggable/zoomable
+            const zoom = d3.zoom()
+                .scaleExtent([0.05, 30])
+                .on('zoom', (event) => {
+                    currentG.attr('transform', event.transform);
+                });
+
+            currentSvg.call(zoom).call(zoom.transform, initialTransform);
+        }
+
+        // Update tree with animation
+        function updateTree(treeData, sourceNodeId) {
+            if (!currentRoot || !currentG) {
+                // No existing tree, do full render
+                const container = document.getElementById('viz-container');
+                renderD3Tree(container, treeData, currentSurnameColors);
+                return;
+            }
+
+            // Find the source node for animation
+            let sourceNode = currentRoot;
+            if (sourceNodeId) {
+                currentRoot.each(d => {
+                    if (d.data.id === sourceNodeId) {
+                        sourceNode = d;
+                    }
+                });
+            }
+
+            // Update hierarchy data
+            const newRoot = d3.hierarchy(treeData);
+            currentTreeLayout(newRoot);
+
+            // Transfer old positions from current tree to new tree for smooth transitions
+            const oldPositions = new Map();
+            currentRoot.each(d => {
+                oldPositions.set(d.data.id, { x: d.x, y: d.y });
+            });
+
+            newRoot.each(d => {
+                const oldPos = oldPositions.get(d.data.id);
+                if (oldPos) {
+                    d.x0 = oldPos.x;
+                    d.y0 = oldPos.y;
+                } else if (sourceNode) {
+                    // New nodes start at the source node position
+                    d.x0 = sourceNode.x;
+                    d.y0 = sourceNode.y;
+                } else {
+                    d.x0 = d.x;
+                    d.y0 = d.y;
+                }
+            });
+
+            // Update current root
+            currentRoot = newRoot;
+
+            // Perform animated update
+            update(newRoot, currentSurnameColors, sourceNode);
+
+            // Store new positions as old for next update
+            newRoot.each(d => {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+        }
+
+        // Perform D3 update with enter/update/exit pattern
+        function update(source, surnameColors, animationSource) {
+            const duration = animationSource ? 750 : 0; // No animation on initial render
+            const nodes = source.descendants();
+            const links = source.links();
+
+            // Update links
+            const linkGroup = currentG.select('.links');
+            const link = linkGroup.selectAll('path')
+                .data(links, d => `${d.source.data.id}-${d.target.data.id}`);
+
+            // Enter new links
+            const linkEnter = link.enter()
+                .append('path')
+                .attr('class', 'link')
+                .attr('fill', 'none')
+                .attr('stroke', '#94A3B8')
+                .attr('stroke-opacity', animationSource ? 0 : 0.4)
+                .attr('stroke-width', 2)
+                .attr('d', d => {
+                    if (animationSource) {
+                        // Start from source position for animation
+                        return d3.linkHorizontal()
+                            .x(d => animationSource.y0)
+                            .y(d => animationSource.x0)({ source: animationSource, target: animationSource });
+                    } else {
+                        // No animation - draw at final position
+                        return d3.linkHorizontal()
+                            .x(d => d.y)
+                            .y(d => d.x)(d);
+                    }
+                });
+
+            // Transition entering links
+            linkEnter.transition()
+                .duration(duration)
+                .attr('stroke-opacity', 0.4)
+                .attr('d', d3.linkHorizontal()
+                    .x(d => d.y)
+                    .y(d => d.x));
+
+            // Update existing links
+            link.transition()
+                .duration(duration)
+                .attr('d', d3.linkHorizontal()
+                    .x(d => d.y)
+                    .y(d => d.x));
+
+            // Exit old links
+            link.exit()
+                .transition()
+                .duration(duration)
+                .attr('stroke-opacity', 0)
+                .remove();
+
+            // Update nodes
+            const nodeGroup = currentG.select('.nodes');
+            const node = nodeGroup.selectAll('g.node')
+                .data(nodes, d => d.data.id);
+
+            // Enter new nodes
+            const nodeEnter = node.enter()
+                .append('g')
+                .attr('class', 'node')
+                .attr('transform', d => {
+                    if (animationSource) {
+                        // Animate from source position
+                        return `translate(${animationSource.y0},${animationSource.x0})`;
+                    } else {
+                        // No animation - start at final position
+                        return `translate(${d.y},${d.x})`;
+                    }
+                })
+                .attr('opacity', animationSource ? 0 : 1);
+
+            // Add circles to new nodes
+            nodeEnter.append('circle')
+                .attr('r', d => (d.data.hasChildren && !d.children) ? 8 : 6)
+                .attr('fill', d => {
+                    const surname = d.data.surname || 'Unknown';
+                    return surnameColors[surname] || '#64748B';
+                })
+                .attr('stroke', d => (d.data.hasChildren && !d.children) ? '#ffffff' : '#fff')
+                .attr('stroke-width', d => (d.data.hasChildren && !d.children) ? 3 : 2)
+                .style('cursor', 'pointer');
+
+            // Add "+" indicator for expandable nodes
+            nodeEnter.filter(d => d.data.hasChildren && !d.children)
+                .append('text')
+                .attr('class', 'expand-indicator')
+                .attr('dy', '0.35em')
+                .attr('text-anchor', 'middle')
+                .text('+')
+                .attr('fill', 'white')
+                .attr('font-weight', 'bold')
+                .attr('font-size', '10px')
+                .style('pointer-events', 'none');
+
+            // Add "↑" button for ancestor expansion
+            const ancestorBtn = nodeEnter.filter(d => d.data.canExpandAncestors)
+                .append('g')
+                .attr('class', 'expand-ancestors-btn')
+                .attr('transform', 'translate(-25, 0)')
+                .style('cursor', 'pointer')
+                .on('click', function(event, d) {
+                    event.stopPropagation();
+                    expandAncestors(d.data.id);
+                });
+
+            ancestorBtn.append('circle')
+                .attr('r', 10)
+                .attr('fill', '#059669')
+                .attr('stroke', '#ffffff')
+                .attr('stroke-width', 2);
+
+            ancestorBtn.append('text')
+                .attr('dy', '0.35em')
+                .attr('text-anchor', 'middle')
+                .text('↑')
+                .attr('fill', 'white')
+                .attr('font-weight', 'bold')
+                .attr('font-size', '14px')
+                .style('pointer-events', 'none');
+
+            // Add labels to new nodes
+            nodeEnter.append('text')
+                .attr('class', 'node-label')
+                .attr('dy', '0.32em')
+                .attr('x', d => {
+                    // If expand ancestors button is present, shift label to the right
+                    if (d.data.canExpandAncestors) {
+                        return 10;  // Always to the right when ancestor button present
+                    }
+                    return d.children ? -10 : 10;
+                })
+                .attr('text-anchor', d => {
+                    // Always start anchor when ancestor button is present
+                    if (d.data.canExpandAncestors) {
+                        return 'start';
+                    }
+                    return d.children ? 'end' : 'start';
+                })
+                .text(d => d.data.name)
+                .attr('stroke', 'white')
+                .attr('stroke-width', 3)
+                .attr('paint-order', 'stroke')
+                .style('font-size', '16px')
+                .style('cursor', 'pointer');
+
+            // Transition entering nodes
+            nodeEnter.transition()
+                .duration(duration)
+                .attr('transform', d => `translate(${d.y},${d.x})`)
+                .attr('opacity', 1);
+
+            // Update existing nodes
+            const nodeUpdate = node.merge(nodeEnter);
+
+            nodeUpdate.transition()
+                .duration(duration)
+                .attr('transform', d => `translate(${d.y},${d.x})`)
+                .attr('opacity', 1);
+
+            // Update circles
+            nodeUpdate.select('circle')
+                .transition()
+                .duration(duration)
+                .attr('r', d => (d.data.hasChildren && !d.children) ? 8 : 6)
+                .attr('fill', d => {
+                    const surname = d.data.surname || 'Unknown';
+                    return surnameColors[surname] || '#64748B';
+                })
+                .attr('stroke', d => (d.data.hasChildren && !d.children) ? '#ffffff' : '#fff')
+                .attr('stroke-width', d => (d.data.hasChildren && !d.children) ? 3 : 2);
+
+            // Update expand indicators (+ sign)
+            nodeUpdate.select('.expand-indicator').remove();
+            nodeUpdate.filter(d => d.data.hasChildren && !d.children)
+                .append('text')
+                .attr('class', 'expand-indicator')
+                .attr('dy', '0.35em')
+                .attr('text-anchor', 'middle')
+                .text('+')
+                .attr('fill', 'white')
+                .attr('font-weight', 'bold')
+                .attr('font-size', '10px')
+                .style('pointer-events', 'none');
+
+            // Update text labels
+            nodeUpdate.select('.node-label')
+                .attr('x', d => {
+                    // If expand ancestors button is present, shift label to the right
+                    if (d.data.canExpandAncestors) {
+                        return 10;  // Always to the right when ancestor button present
+                    }
+                    return d.children ? -10 : 10;
+                })
+                .attr('text-anchor', d => {
+                    // Always start anchor when ancestor button is present
+                    if (d.data.canExpandAncestors) {
+                        return 'start';
+                    }
+                    return d.children ? 'end' : 'start';
+                })
+                .text(d => d.data.name);
+
+            // Add click handlers to circles and text (for both new and existing nodes)
+            nodeUpdate.select('circle')
+                .on('click', function(event, d) {
+                    if (d.data.hasChildren && !d.children) {
+                        event.stopPropagation();
+                        expandNode(d.data.id);
+                    }
+                })
+                .on('dblclick', function(event, d) {
+                    event.stopPropagation();
+                    openPersonModal(d.data.id);
+                });
+
+            nodeUpdate.select('.node-label')
+                .on('click', function(event, d) {
+                    if (d.data.hasChildren && !d.children) {
+                        event.stopPropagation();
+                        expandNode(d.data.id);
+                    }
+                })
+                .on('dblclick', function(event, d) {
+                    event.stopPropagation();
+                    openPersonModal(d.data.id);
+                });
+
+            // Tooltips
+            const tooltip = d3.select('#tooltip');
+            nodeUpdate
+                .on('mouseover', (event, d) => {
+                    tooltip.style('opacity', 1)
+                        .html(`
+                            <strong>${d.data.fullName}</strong><br/>
+                            ${d.data.dates ? 'Dates: ' + d.data.dates : 'Dates unknown'}
+                        `)
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 10) + 'px');
+                })
+                .on('mouseout', () => {
+                    tooltip.style('opacity', 0);
+                });
+
+            // Exit old nodes
+            node.exit()
+                .transition()
+                .duration(duration)
+                .attr('transform', d => {
+                    const o = animationSource || source;
+                    return `translate(${o.y},${o.x})`;
+                })
+                .attr('opacity', 0)
+                .remove();
+        }
+
+        // Show status message
+        function showStatus(message, type = '') {
+            const statusBar = document.getElementById('status-bar');
+            statusBar.textContent = message;
+            statusBar.className = type;
+        }
+
+        // Modal state
+        let currentModalPersonId = null;
+
+        // Open person details modal
+        async function openPersonModal(personId) {
+            currentModalPersonId = personId;
+            const modal = document.getElementById('person-modal');
+            modal.classList.add('active');
+
+            // Show loading state
+            document.getElementById('modal-person-name').textContent = 'Loading...';
+            document.getElementById('modal-person-dates').textContent = '';
+            document.getElementById('person-details-content').innerHTML = '<div style="padding: 20px; text-align: center; color: #64748B;">Loading person details...</div>';
+            document.getElementById('lineage-content').innerHTML = '';
+            document.getElementById('family-content').innerHTML = '';
+            document.getElementById('lineage-section').style.display = 'none';
+
+            try {
+                // Fetch person details
+                const personResponse = await fetch(`${API_BASE_URL}/genealogy/person/${personId}`);
+                if (!personResponse.ok) throw new Error('Failed to load person details');
+                const person = await personResponse.json();
+
+                // Update header
+                document.getElementById('modal-person-name').textContent = person.full_name;
+                const dates = (person.birth_year || person.death_year)
+                    ? `(${person.birth_year || '?'} - ${person.death_year || '?'})`
+                    : '';
+                document.getElementById('modal-person-dates').textContent = dates;
+
+                // Populate person details
+                populatePersonDetails(person);
+
+                // Fetch and populate lineage (if available)
+                try {
+                    const lineageResponse = await fetch(`${API_BASE_URL}/genealogy/lineage/${personId}`);
+                    if (lineageResponse.ok) {
+                        const lineage = await lineageResponse.json();
+                        populateLineage(lineage, personId);
+                        document.getElementById('lineage-section').style.display = 'block';
+                    } else {
+                        document.getElementById('lineage-section').style.display = 'none';
+                    }
+                } catch (e) {
+                    console.log('No lineage data available');
+                    document.getElementById('lineage-section').style.display = 'none';
+                }
+
+                // Fetch and populate direct family
+                const familyResponse = await fetch(`${API_BASE_URL}/genealogy/family/${personId}`);
+                if (!familyResponse.ok) throw new Error('Failed to load family details');
+                const family = await familyResponse.json();
+                populateDirectFamily(family);
+
+            } catch (error) {
+                console.error('Error loading person details:', error);
+                document.getElementById('person-details-content').innerHTML = '<div style="padding: 20px; text-align: center; color: #991B1B;">Error loading person details</div>';
+            }
+        }
+
+        // Close person details modal
+        function closePersonModal() {
+            const modal = document.getElementById('person-modal');
+            modal.classList.remove('active');
+            currentModalPersonId = null;
+        }
+
+        // Populate person details section
+        function populatePersonDetails(person) {
+            const detailsHtml = `
+                <div class="detail-item">
+                    <div class="detail-label">Given Name</div>
+                    <div class="detail-value">${person.given_name || 'Unknown'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Surname</div>
+                    <div class="detail-value">${person.surname || 'Unknown'}</div>
+                </div>
+                ${person.maiden_name ? `
+                    <div class="detail-item">
+                        <div class="detail-label">Maiden Name</div>
+                        <div class="detail-value">${person.maiden_name}</div>
+                    </div>
+                ` : ''}
+                <div class="detail-item">
+                    <div class="detail-label">Birth Year</div>
+                    <div class="detail-value">${person.birth_year || 'Unknown'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Death Year</div>
+                    <div class="detail-value">${person.death_year || 'Unknown'}</div>
+                </div>
+            `;
+            document.getElementById('person-details-content').innerHTML = detailsHtml;
+        }
+
+        // Populate lineage section
+        function populateLineage(lineage, currentPersonId) {
+            let lineageHtml = '';
+
+            lineage.path.forEach((person, index) => {
+                const isFirst = index === 0;
+                const isCurrent = person.id === currentPersonId;
+                const indent = '  '.repeat(index);
+                const arrow = index > 0 ? '└→ ' : '';
+                const dates = (person.birth_year || person.death_year)
+                    ? `(${person.birth_year || '?'}-${person.death_year || '?'})`
+                    : '';
+
+                const itemClass = isCurrent ? 'lineage-item current' : 'lineage-item';
+                const nameHtml = isCurrent ? `<strong>${person.name}</strong> ← You are here` :
+                                 isFirst ? `${person.name} - <em>Earliest Keenum Ancestor</em>` :
+                                 person.name;
+
+                lineageHtml += `
+                    <div class="${itemClass}">
+                        <span class="lineage-indent">${indent}${arrow}</span>
+                        <span class="lineage-name">${nameHtml}</span>
+                        <span class="lineage-dates">${dates} Gen ${person.generation}</span>
+                    </div>
+                `;
+            });
+
+            lineageHtml += `<div class="relationship-desc">${lineage.relationship_description}</div>`;
+
+            document.getElementById('lineage-content').innerHTML = lineageHtml;
+        }
+
+        // Populate direct family section
+        function populateDirectFamily(family) {
+            let familyHtml = '';
+
+            // Parents
+            if (family.parents && family.parents.length > 0) {
+                familyHtml += '<h4 style="margin: 12px 0 8px 0; font-size: 14px; color: #475569;">Parents</h4>';
+                familyHtml += '<ul class="family-list">';
+                family.parents.forEach(parent => {
+                    const dates = (parent.birth_year || parent.death_year)
+                        ? `(${parent.birth_year || '?'}-${parent.death_year || '?'})`
+                        : '';
+                    familyHtml += `
+                        <li class="family-member" onclick="openPersonModal(${parent.id})">
+                            <div>
+                                <div class="family-member-name">${parent.name}</div>
+                                <div class="family-member-info">${dates}</div>
+                            </div>
+                            <div class="family-member-badge">${parent.relationship}</div>
+                        </li>
+                    `;
+                });
+                familyHtml += '</ul>';
+            }
+
+            // Siblings
+            if (family.siblings && family.siblings.length > 0) {
+                familyHtml += '<h4 style="margin: 12px 0 8px 0; font-size: 14px; color: #475569;">Siblings</h4>';
+                familyHtml += '<ul class="family-list">';
+                family.siblings.forEach(sibling => {
+                    const dates = (sibling.birth_year || sibling.death_year)
+                        ? `(${sibling.birth_year || '?'}-${sibling.death_year || '?'})`
+                        : '';
+                    familyHtml += `
+                        <li class="family-member" onclick="openPersonModal(${sibling.id})">
+                            <div>
+                                <div class="family-member-name">${sibling.name}</div>
+                                <div class="family-member-info">${dates}</div>
+                            </div>
+                            <div class="family-member-badge">${sibling.relationship}</div>
+                        </li>
+                    `;
+                });
+                familyHtml += '</ul>';
+            }
+
+            // Spouses
+            if (family.spouses && family.spouses.length > 0) {
+                familyHtml += '<h4 style="margin: 12px 0 8px 0; font-size: 14px; color: #475569;">Spouses/Partners</h4>';
+                familyHtml += '<ul class="family-list">';
+                family.spouses.forEach(spouse => {
+                    const dates = (spouse.birth_year || spouse.death_year)
+                        ? `(${spouse.birth_year || '?'}-${spouse.death_year || '?'})`
+                        : '';
+                    const info = spouse.additional_info ? `${dates} - ${spouse.additional_info}` : dates;
+                    familyHtml += `
+                        <li class="family-member" onclick="openPersonModal(${spouse.id})">
+                            <div>
+                                <div class="family-member-name">${spouse.name}</div>
+                                <div class="family-member-info">${info}</div>
+                            </div>
+                            <div class="family-member-badge">${spouse.relationship}</div>
+                        </li>
+                    `;
+                });
+                familyHtml += '</ul>';
+            }
+
+            // Children
+            if (family.children && family.children.length > 0) {
+                familyHtml += '<h4 style="margin: 12px 0 8px 0; font-size: 14px; color: #475569;">Children</h4>';
+                familyHtml += '<ul class="family-list">';
+                family.children.forEach(child => {
+                    const dates = (child.birth_year || child.death_year)
+                        ? `(${child.birth_year || '?'}-${child.death_year || '?'})`
+                        : '';
+                    familyHtml += `
+                        <li class="family-member" onclick="openPersonModal(${child.id})">
+                            <div>
+                                <div class="family-member-name">${child.name}</div>
+                                <div class="family-member-info">${dates}</div>
+                            </div>
+                            <div class="family-member-badge">${child.relationship}</div>
+                        </li>
+                    `;
+                });
+                familyHtml += '</ul>';
+            }
+
+            if (!familyHtml) {
+                familyHtml = '<div class="empty-family">No direct family relationships recorded</div>';
+            }
+
+            document.getElementById('family-content').innerHTML = familyHtml;
+        }
+
+        // Focus tree on the currently selected person in modal
+        async function focusTreeOnPerson() {
+            if (!currentModalPersonId) return;
+
+            // Save the person ID before closing modal (which sets it to null)
+            const personId = currentModalPersonId;
+
+            // Close modal
+            closePersonModal();
+
+            // Show loading status
+            showStatus('Focusing tree on selected person...', '');
+
+            // Get the person's details to populate the dropdown
+            try {
+                console.log('Fetching person details for ID:', personId);
+                const personResponse = await fetch(`${API_BASE_URL}/genealogy/person/${personId}`);
+                if (!personResponse.ok) {
+                    const errorText = await personResponse.text();
+                    console.error('API error:', personResponse.status, errorText);
+                    throw new Error(`Failed to load person: ${personResponse.status}`);
+                }
+                const person = await personResponse.json();
+                console.log('Person data:', person);
+
+                // Update the autocomplete search input with this person
+                const searchInput = document.getElementById('person-search');
+                const dates = person.birth_year || person.death_year
+                    ? ` (${person.birth_year || '?'}-${person.death_year || '?'})`
+                    : '';
+                searchInput.value = `${person.full_name}${dates}`;
+
+                // Set selected person state
+                selectedPersonId = person.id;
+                selectedPersonName = person.full_name;
+
+                console.log('Autocomplete updated, selected person:', selectedPersonName);
+
+                // Clear expanded nodes and regenerate tree with this person as root
+                expandedNodes.clear();
+                expandedAncestors.clear();
+                ancestorData.clear();
+                currentRootId = personId;
+
+                console.log('Calling generateTree()...');
+                // Regenerate tree
+                await generateTree();
+
+                showStatus(`Focused tree on ${person.full_name}`, 'success');
+            } catch (error) {
+                console.error('Error focusing on person:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('person-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'person-modal') {
+                closePersonModal();
+            }
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('person-modal').classList.contains('active')) {
+                closePersonModal();
+            }
+        });
+    </script>
+</body>
+</html>

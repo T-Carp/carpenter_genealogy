@@ -7,27 +7,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # Anthropic API
-    anthropic_api_key: str
-    claude_model: str = "claude-3-5-sonnet-20241022"
-
-    # Vector Database
-    vector_db_path: Path = Path("./data/vector_store")
-    vector_db_collection: str = "genealogy_narratives"
-
     # Structured Database
     structured_db_path: Path = Path("./data/structured_db/genealogy.db")
 
-    # Neo4j (optional)
-    neo4j_uri: str = "bolt://localhost:7687"
-    neo4j_user: str = "neo4j"
-    neo4j_password: str = "password"
+    # API Settings
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
 
     # Application Settings
-    max_context_chunks: int = 10
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
-    confidence_threshold: float = 0.7
+    app_title: str = "Carpenter Family Genealogy"
+    app_description: str = "Family genealogy data management and visualization"
 
     model_config = SettingsConfigDict(
         env_file=".env",
